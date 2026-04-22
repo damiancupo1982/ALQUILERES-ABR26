@@ -14,7 +14,7 @@ import { cashMovementsService } from './services/cashMovements.service';
 import { autoReceiptsService } from './services/autoReceipts.service';
 import { buildingsService } from './services/buildings.service';
 import { supabase } from './lib/supabase';
-import { Property, Tenant, Receipt as ReceiptType, CashMovement } from './App';
+import { Property, Tenant, Receipt as ReceiptType, CashMovement, TenantAdjustment } from './App';
 
 type TabType = 'dashboard' | 'properties' | 'tenants' | 'receipts' | 'history' | 'cash';
 
@@ -28,6 +28,23 @@ function AppWithSupabase() {
   const [isImporting, setIsImporting] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  const [tenantAdjustments, setTenantAdjustments] = useState<TenantAdjustment[]>(() => {
+    try {
+      const saved = localStorage.getItem('tenantAdjustments');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tenantAdjustments', JSON.stringify(tenantAdjustments));
+    } catch {
+      // ignore storage errors
+    }
+  }, [tenantAdjustments]);
 
   const showNotif = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -590,6 +607,8 @@ function AppWithSupabase() {
           properties={properties}
           receipts={receipts}
           updatePropertyTenant={updatePropertyTenant}
+          adjustments={tenantAdjustments}
+          setAdjustments={setTenantAdjustments}
         />;
       case 'receipts':
         return <ReceiptsManager

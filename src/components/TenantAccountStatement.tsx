@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
-import { X, Printer, FileText, Calendar } from 'lucide-react';
-import { Tenant, Receipt } from '../App';
+import React, { useMemo, useState } from 'react';
+import { X, Printer, FileText, Calendar, Plus } from 'lucide-react';
+import { Tenant, Receipt, TenantAdjustment } from '../App';
 
 interface TenantAccountStatementProps {
   tenant: Tenant;
   receipts: Receipt[];
+  adjustments?: TenantAdjustment[];
+  setAdjustments?: React.Dispatch<React.SetStateAction<TenantAdjustment[]>>;
   onClose: () => void;
 }
 
@@ -15,30 +17,65 @@ interface Movement {
   debit: number;
   credit: number;
   balance: number;
-  type: 'receipt' | 'payment';
+  type: 'receipt' | 'payment' | 'adjustment';
   receiptNumber?: string;
 }
 
 const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
   tenant,
   receipts,
+  adjustments = [],
+  setAdjustments,
   onClose,
 }) => {
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [adjustmentForm, setAdjustmentForm] = useState({
+    date: new Date().toISOString().split('T')[0],
+    amount: '',
+    reason: '',
+  });
   const movements = useMemo(() => {
     const tenantReceipts = receipts.filter(r =>
       r.tenant.toLowerCase() === tenant.name.toLowerCase()
+    );
+    const tenantAdjustments = adjustments.filter(a =>
+      a.tenant.toLowerCase() === tenant.name.toLowerCase()
     );
 
     const allMovements: Movement[] = [];
     let runningBalance = 0;
 
-    tenantReceipts
-      .sort((a, b) => {
-        const dateA = new Date(a.createdDate).getTime();
-        const dateB = new Date(b.createdDate).getTime();
-        return dateA - dateB;
-      })
-      .forEach(receipt => {
+    // Build raw events sorted by date
+    type RawEvent =
+      | { kind: 'receipt-debit'; date: string; receipt: Receipt }
+      | { kind: 'receipt-credit'; date: string; receipt: Receipt }
+      | { kind: 'adjustment'; date: string; adjustment: TenantAdjustment };
+
+    const rawEvents: RawEvent[] = [];
+
+    tenantReceipts.forEach(receipt => {
+      rawEvents.push({ kind: 'receipt-debit', date: receipt.createdDate, receipt });
+      if (receipt.paidAmount > 0) {
+        rawEvents.push({ kind: 'receipt-credit', date: receipt.createdDate, receipt });
+      }
+    });
+
+    tenantAdjustments.forEach(adjustment => {
+      rawEvents.push({ kind: 'adjustment', date: adjustment.date, adjustment });
+    });
+
+    rawEvents.sort((a, b) => {
+      const diff = new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (diff !== 0) return diff;
+      // receipts before adjustments on same date for stable ordering
+      if (a.kind === 'adjustment' && b.kind !== 'adjustment') return 1;
+      if (a.kind !== 'adjustment' && b.kind === 'adjustment') return -1;
+      return 0;
+    });
+
+    rawEvents.forEach(event => {
+      if (event.kind === 'receipt-debit') {
+        const { receipt } = event;
         runningBalance += receipt.total;
         allMovements.push({
           id: `${receipt.id}-debit`,
@@ -50,24 +87,72 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
           type: 'receipt',
           receiptNumber: receipt.receiptNumber,
         });
-
-        if (receipt.paidAmount > 0) {
-          runningBalance -= receipt.paidAmount;
+      } else if (event.kind === 'receipt-credit') {
+        const { receipt } = event;
+        runningBalance -= receipt.paidAmount;
+        allMovements.push({
+          id: `${receipt.id}-credit`,
+          date: receipt.createdDate,
+          description: `Pago ${receipt.paymentMethod} - Recibo ${receipt.receiptNumber}`,
+          debit: 0,
+          credit: receipt.paidAmount,
+          balance: runningBalance,
+          type: 'payment',
+          receiptNumber: receipt.receiptNumber,
+        });
+      } else {
+        const { adjustment } = event;
+        if (adjustment.amount > 0) {
+          runningBalance += adjustment.amount;
           allMovements.push({
-            id: `${receipt.id}-credit`,
-            date: receipt.createdDate,
-            description: `Pago ${receipt.paymentMethod} - Recibo ${receipt.receiptNumber}`,
-            debit: 0,
-            credit: receipt.paidAmount,
+            id: `adj-${adjustment.id}`,
+            date: adjustment.date,
+            description: `Ajuste: ${adjustment.reason}`,
+            debit: adjustment.amount,
+            credit: 0,
             balance: runningBalance,
-            type: 'payment',
-            receiptNumber: receipt.receiptNumber,
+            type: 'adjustment',
+          });
+        } else {
+          runningBalance += adjustment.amount; // amount is negative
+          allMovements.push({
+            id: `adj-${adjustment.id}`,
+            date: adjustment.date,
+            description: `Ajuste: ${adjustment.reason}`,
+            debit: 0,
+            credit: Math.abs(adjustment.amount),
+            balance: runningBalance,
+            type: 'adjustment',
           });
         }
-      });
+      }
+    });
 
     return allMovements;
-  }, [tenant, receipts]);
+  }, [tenant, receipts, adjustments]);
+
+  const handleSaveAdjustment = () => {
+    if (!setAdjustments) return;
+    const amount = parseFloat(adjustmentForm.amount);
+    if (isNaN(amount) || amount === 0) return;
+    if (!adjustmentForm.reason.trim()) return;
+
+    const newAdjustment: TenantAdjustment = {
+      id: Date.now(),
+      tenant: tenant.name,
+      date: adjustmentForm.date,
+      amount,
+      reason: adjustmentForm.reason.trim(),
+    };
+
+    setAdjustments(prev => [...prev, newAdjustment]);
+    setAdjustmentForm({
+      date: new Date().toISOString().split('T')[0],
+      amount: '',
+      reason: '',
+    });
+    setShowAdjustmentModal(false);
+  };
 
   const finalBalance = movements.length > 0 ? movements[movements.length - 1].balance : 0;
 
@@ -227,6 +312,15 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
             <p className="text-gray-600">{tenant.name}</p>
           </div>
           <div className="flex items-center space-x-3">
+            {setAdjustments && (
+              <button
+                onClick={() => setShowAdjustmentModal(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Crear ajuste</span>
+              </button>
+            )}
             <button
               onClick={printStatement}
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -362,6 +456,72 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
           </div>
         )}
       </div>
+      
+      {/* Adjustment Modal */}
+      {showAdjustmentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Crear Ajuste</h3>
+              <button
+                onClick={() => setShowAdjustmentModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+                <input
+                  type="date"
+                  value={adjustmentForm.date}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Importe (positivo = aumenta deuda; negativo = a favor)
+                </label>
+                <input
+                  type="number"
+                  value={adjustmentForm.amount}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, amount: e.target.value })}
+                  placeholder="Ej: 1500 o -500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Motivo / Descripción *</label>
+                <input
+                  type="text"
+                  value={adjustmentForm.reason}
+                  onChange={(e) => setAdjustmentForm({ ...adjustmentForm, reason: e.target.value })}
+                  placeholder="Ingrese el motivo del ajuste"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowAdjustmentModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveAdjustment}
+                disabled={!adjustmentForm.reason.trim() || !adjustmentForm.amount || parseFloat(adjustmentForm.amount) === 0}
+                className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
