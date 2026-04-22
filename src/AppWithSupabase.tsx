@@ -1,13 +1,11 @@
-import React, { useEffect } from 'react';
+import App from './App';
 
-const AppWithSupabase = () => {
-    // Your component logic here
+type AppWithSupabaseProps = {
+  session?: unknown;
+};
 
-    return (
-        <div>
-            {/* Your JSX here */}
-        </div>
-    );
+const AppWithSupabase = (_props: AppWithSupabaseProps) => {
+  return <App />;
 };
 
 export default AppWithSupabase;
