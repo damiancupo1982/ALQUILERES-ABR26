@@ -85,6 +85,14 @@ export interface CashMovement {
   deliveryType?: 'propietario' | 'comision' | 'gasto';
 }
 
+export interface TenantAdjustment {
+  id: number;
+  tenant: string;
+  date: string;
+  amount: number;
+  reason: string;
+}
+
 // Funciones para localStorage
 const saveToLocalStorage = (key: string, data: any) => {
   try {
@@ -345,6 +353,10 @@ function App() {
   ])
   );
 
+  const [tenantAdjustments, setTenantAdjustments] = useState<TenantAdjustment[]>(() =>
+    loadFromLocalStorage('tenantAdjustments', [])
+  );
+
   const [cashMovements, setCashMovements] = useState<CashMovement[]>(() =>
     loadFromLocalStorage('cashMovements', [
     {
@@ -394,6 +406,10 @@ function App() {
   useEffect(() => {
     saveToLocalStorage('cashMovements', cashMovements);
   }, [cashMovements]);
+
+  useEffect(() => {
+    saveToLocalStorage('tenantAdjustments', tenantAdjustments);
+  }, [tenantAdjustments]);
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
@@ -456,6 +472,8 @@ function App() {
           properties={properties}
           receipts={receipts}
           updatePropertyTenant={updatePropertyTenant}
+          adjustments={tenantAdjustments}
+          setAdjustments={setTenantAdjustments}
         />;
       case 'receipts':
         return <ReceiptsManager

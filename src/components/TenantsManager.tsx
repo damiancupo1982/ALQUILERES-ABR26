@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { Plus, User, Phone, Mail, Calendar, CreditCard as Edit, Trash2, Eye } from 'lucide-react';
-import { Tenant, Property, Receipt } from '../App';
+import React, { useState } from 'react';
+import { Plus, User, Phone, Mail, Calendar, CreditCard as Edit, Trash2 } from 'lucide-react';
+import { Tenant, Property, Receipt, TenantAdjustment } from '../App';
 import TenantAccountStatement from './TenantAccountStatement';
 
 interface TenantsManagerProps {
@@ -9,9 +9,11 @@ interface TenantsManagerProps {
   properties: Property[];
   receipts: Receipt[];
   updatePropertyTenant: (propertyId: number | null, tenantName: string | null, oldPropertyId?: number | null) => void;
+  adjustments: TenantAdjustment[];
+  setAdjustments: React.Dispatch<React.SetStateAction<TenantAdjustment[]>>;
 }
 
-const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, properties, receipts, updatePropertyTenant }) => {
+const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, properties, receipts, updatePropertyTenant, adjustments, setAdjustments }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [showAccountStatement, setShowAccountStatement] = useState(false);
@@ -122,12 +124,16 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
     );
   };
 
-  // Calcular deuda real de cada inquilino basándose en los recibos
+  // Calcular deuda real de cada inquilino basándose en los recibos y ajustes
   const getTenantDebt = (tenantName: string): number => {
     const tenantReceipts = receipts.filter(r =>
       r.tenant.toLowerCase() === tenantName.toLowerCase()
     );
-    return tenantReceipts.reduce((sum, r) => sum + (r.remainingBalance || 0), 0);
+    const receiptsBalance = tenantReceipts.reduce((sum, r) => sum + (r.remainingBalance || 0), 0);
+    const adjustmentsTotal = adjustments
+      .filter(a => a.tenant.toLowerCase() === tenantName.toLowerCase())
+      .reduce((sum, a) => sum + a.amount, 0);
+    return receiptsBalance + adjustmentsTotal;
   };
 
   const handleViewAccount = (tenant: Tenant) => {
@@ -441,6 +447,8 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
         <TenantAccountStatement
           tenant={selectedTenant}
           receipts={receipts}
+          adjustments={adjustments}
+          setAdjustments={setAdjustments}
           onClose={() => {
             setShowAccountStatement(false);
             setSelectedTenant(null);
