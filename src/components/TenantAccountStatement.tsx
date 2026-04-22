@@ -6,7 +6,7 @@ interface TenantAccountStatementProps {
   tenant: Tenant;
   receipts: Receipt[];
   adjustments?: TenantAdjustment[];
-  onAddAdjustment?: (adjustment: Omit<TenantAdjustment, 'id'>) => Promise<void>;
+  setAdjustments?: React.Dispatch<React.SetStateAction<TenantAdjustment[]>>;
   onClose: () => void;
 }
 
@@ -25,17 +25,15 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
   tenant,
   receipts,
   adjustments = [],
-  onAddAdjustment,
+  setAdjustments,
   onClose,
 }) => {
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
-  const [savingAdjustment, setSavingAdjustment] = useState(false);
   const [adjustmentForm, setAdjustmentForm] = useState({
     date: new Date().toISOString().split('T')[0],
     amount: '',
     reason: '',
   });
-
   const movements = useMemo(() => {
     const tenantReceipts = receipts.filter(r =>
       r.tenant.toLowerCase() === tenant.name.toLowerCase()
@@ -47,6 +45,7 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
     const allMovements: Movement[] = [];
     let runningBalance = 0;
 
+    // Build raw events sorted by date
     type RawEvent =
       | { kind: 'receipt-debit'; date: string; receipt: Receipt }
       | { kind: 'receipt-credit'; date: string; receipt: Receipt }
@@ -68,6 +67,7 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
     rawEvents.sort((a, b) => {
       const diff = new Date(a.date).getTime() - new Date(b.date).getTime();
       if (diff !== 0) return diff;
+      // receipts before adjustments on same date for stable ordering
       if (a.kind === 'adjustment' && b.kind !== 'adjustment') return 1;
       if (a.kind !== 'adjustment' && b.kind === 'adjustment') return -1;
       return 0;
@@ -114,7 +114,7 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
             type: 'adjustment',
           });
         } else {
-          runningBalance += adjustment.amount;
+          runningBalance += adjustment.amount; // amount is negative
           allMovements.push({
             id: `adj-${adjustment.id}`,
             date: adjustment.date,
@@ -131,29 +131,27 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
     return allMovements;
   }, [tenant, receipts, adjustments]);
 
-  const handleSaveAdjustment = async () => {
-    if (!onAddAdjustment) return;
+  const handleSaveAdjustment = () => {
+    if (!setAdjustments) return;
     const amount = parseFloat(adjustmentForm.amount);
     if (isNaN(amount) || amount === 0) return;
     if (!adjustmentForm.reason.trim()) return;
 
-    setSavingAdjustment(true);
-    try {
-      await onAddAdjustment({
-        tenant: tenant.name,
-        date: adjustmentForm.date,
-        amount,
-        reason: adjustmentForm.reason.trim(),
-      });
-      setAdjustmentForm({
-        date: new Date().toISOString().split('T')[0],
-        amount: '',
-        reason: '',
-      });
-      setShowAdjustmentModal(false);
-    } finally {
-      setSavingAdjustment(false);
-    }
+    const newAdjustment: TenantAdjustment = {
+      id: Date.now(),
+      tenant: tenant.name,
+      date: adjustmentForm.date,
+      amount,
+      reason: adjustmentForm.reason.trim(),
+    };
+
+    setAdjustments(prev => [...prev, newAdjustment]);
+    setAdjustmentForm({
+      date: new Date().toISOString().split('T')[0],
+      amount: '',
+      reason: '',
+    });
+    setShowAdjustmentModal(false);
   };
 
   const finalBalance = movements.length > 0 ? movements[movements.length - 1].balance : 0;
@@ -168,20 +166,65 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
         <head>
           <title>Cuenta Corriente - ${tenant.name}</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .tenant-info { margin-bottom: 20px; background-color: #f5f5f5; padding: 15px; border-radius: 5px; }
-            .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-            table { border-collapse: collapse; width: 100%; margin: 20px 0; font-size: 11px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #333; color: white; font-weight: bold; text-align: center; }
+            body {
+              font-family: Arial, sans-serif;
+              margin: 20px;
+              font-size: 12px;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 20px;
+            }
+            .tenant-info {
+              margin-bottom: 20px;
+              background-color: #f5f5f5;
+              padding: 15px;
+              border-radius: 5px;
+            }
+            .info-row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 8px;
+            }
+            table {
+              border-collapse: collapse;
+              width: 100%;
+              margin: 20px 0;
+              font-size: 11px;
+            }
+            th, td {
+              border: 1px solid #ddd;
+              padding: 8px;
+              text-align: left;
+            }
+            th {
+              background-color: #333;
+              color: white;
+              font-weight: bold;
+              text-align: center;
+            }
             .text-right { text-align: right; }
             .text-center { text-align: center; }
             .debit { color: #dc2626; font-weight: bold; }
             .credit { color: #16a34a; font-weight: bold; }
             .balance { font-weight: bold; }
-            .final-balance { margin-top: 20px; padding: 15px; background-color: ${finalBalance > 0 ? '#fee2e2' : '#dcfce7'}; border-radius: 5px; text-align: right; }
-            .footer { margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px; text-align: center; font-size: 10px; color: #666; }
+            .final-balance {
+              margin-top: 20px;
+              padding: 15px;
+              background-color: ${finalBalance > 0 ? '#fee2e2' : '#dcfce7'};
+              border-radius: 5px;
+              text-align: right;
+            }
+            .footer {
+              margin-top: 30px;
+              border-top: 1px solid #ddd;
+              padding-top: 20px;
+              text-align: center;
+              font-size: 10px;
+              color: #666;
+            }
           </style>
         </head>
         <body>
@@ -189,6 +232,7 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
             <h1>CUENTA CORRIENTE</h1>
             <h2>${tenant.name}</h2>
           </div>
+
           <div class="tenant-info">
             <div class="info-row">
               <span><strong>Propiedad:</strong> ${tenant.property}</span>
@@ -203,6 +247,7 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
               <span><strong>Fecha de emisión:</strong> ${new Date().toLocaleDateString('es-AR')}</span>
             </div>
           </div>
+
           <table>
             <thead>
               <tr>
@@ -218,19 +263,34 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
                 <tr>
                   <td class="text-center">${new Date(mov.date).toLocaleDateString('es-AR')}</td>
                   <td>${mov.description}</td>
-                  <td class="text-right ${mov.debit > 0 ? 'debit' : ''}">${mov.debit > 0 ? '$' + mov.debit.toLocaleString() : '-'}</td>
-                  <td class="text-right ${mov.credit > 0 ? 'credit' : ''}">${mov.credit > 0 ? '$' + mov.credit.toLocaleString() : '-'}</td>
-                  <td class="text-right balance" style="color: ${mov.balance > 0 ? '#dc2626' : '#16a34a'}">$${mov.balance.toLocaleString()}</td>
+                  <td class="text-right ${mov.debit > 0 ? 'debit' : ''}">
+                    ${mov.debit > 0 ? '$' + mov.debit.toLocaleString() : '-'}
+                  </td>
+                  <td class="text-right ${mov.credit > 0 ? 'credit' : ''}">
+                    ${mov.credit > 0 ? '$' + mov.credit.toLocaleString() : '-'}
+                  </td>
+                  <td class="text-right balance" style="color: ${mov.balance > 0 ? '#dc2626' : '#16a34a'}">
+                    $${mov.balance.toLocaleString()}
+                  </td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
+
           <div class="final-balance">
-            <h3 style="margin: 0;">Saldo Final: <span style="color: ${finalBalance > 0 ? '#dc2626' : '#16a34a'}; font-size: 24px;">$${finalBalance.toLocaleString()}</span></h3>
-            <p style="margin: 5px 0 0 0; font-size: 14px;">${finalBalance > 0 ? 'Debe' : finalBalance < 0 ? 'A favor' : 'Al día'}</p>
+            <h3 style="margin: 0;">
+              Saldo Final:
+              <span style="color: ${finalBalance > 0 ? '#dc2626' : '#16a34a'}; font-size: 24px;">
+                $${finalBalance.toLocaleString()}
+              </span>
+            </h3>
+            <p style="margin: 5px 0 0 0; font-size: 14px;">
+              ${finalBalance > 0 ? 'Debe' : finalBalance < 0 ? 'A favor' : 'Al día'}
+            </p>
           </div>
+
           <div class="footer">
-            <p>Generado el ${new Date().toLocaleDateString('es-AR')} a las ${new Date().toLocaleTimeString('es-AR')}</p>
+            <p>Este resumen de cuenta corriente fue generado el ${new Date().toLocaleDateString('es-AR')} a las ${new Date().toLocaleTimeString('es-AR')}</p>
             <p>Sistema de Alquileres</p>
           </div>
         </body>
@@ -245,13 +305,14 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+        {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-gray-200">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Cuenta Corriente</h2>
             <p className="text-gray-600">{tenant.name}</p>
           </div>
           <div className="flex items-center space-x-3">
-            {onAddAdjustment && (
+            {setAdjustments && (
               <button
                 onClick={() => setShowAdjustmentModal(true)}
                 className="flex items-center space-x-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
@@ -267,12 +328,16 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
               <Printer className="h-4 w-4" />
               <span>Imprimir</span>
             </button>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
               <X className="h-6 w-6" />
             </button>
           </div>
         </div>
 
+        {/* Tenant Info */}
         <div className="p-6 bg-gray-50 border-b border-gray-200">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
@@ -296,16 +361,27 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
           </div>
         </div>
 
+        {/* Movements Table */}
         <div className="flex-1 overflow-auto p-6">
           {movements.length > 0 ? (
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-800 sticky top-0">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Fecha</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Descripción</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Debe</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Haber</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Saldo</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    Fecha
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    Descripción
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
+                    Debe
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
+                    Haber
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
+                    Saldo
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -325,14 +401,18 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-right">
                       {movement.debit > 0 ? (
-                        <span className="font-bold text-red-600">${movement.debit.toLocaleString()}</span>
+                        <span className="font-bold text-red-600">
+                          ${movement.debit.toLocaleString()}
+                        </span>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-right">
                       {movement.credit > 0 ? (
-                        <span className="font-bold text-green-600">${movement.credit.toLocaleString()}</span>
+                        <span className="font-bold text-green-600">
+                          ${movement.credit.toLocaleString()}
+                        </span>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
@@ -355,6 +435,7 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
           )}
         </div>
 
+        {/* Footer with Final Balance */}
         {movements.length > 0 && (
           <div className={`p-6 border-t border-gray-200 ${finalBalance > 0 ? 'bg-red-50' : finalBalance < 0 ? 'bg-green-50' : 'bg-gray-50'}`}>
             <div className="flex justify-between items-center">
@@ -375,13 +456,17 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
           </div>
         )}
       </div>
-
+      
+      {/* Adjustment Modal */}
       {showAdjustmentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Crear Ajuste</h3>
-              <button onClick={() => setShowAdjustmentModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={() => setShowAdjustmentModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -422,17 +507,16 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setShowAdjustmentModal(false)}
-                disabled={savingAdjustment}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveAdjustment}
-                disabled={savingAdjustment || !adjustmentForm.reason.trim() || !adjustmentForm.amount || parseFloat(adjustmentForm.amount) === 0}
+                disabled={!adjustmentForm.reason.trim() || !adjustmentForm.amount || parseFloat(adjustmentForm.amount) === 0}
                 className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {savingAdjustment ? 'Guardando...' : 'Guardar'}
+                Guardar
               </button>
             </div>
           </div>
