@@ -92,7 +92,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tenants, receipts, properties, se
 
   // Estadísticas
   const totalProperties = (properties ?? []).length;
-  const activeTenants = (tenants ?? []).filter((t: any) => t?.status === 'activo').length;
+  const activeTenants = (tenants ?? []).filter((t: any) => t?.propertyId != null).length;
   const occupancyRate =
     totalProperties > 0 ? ((activeTenants / totalProperties) * 100).toFixed(1) : '0';
 
