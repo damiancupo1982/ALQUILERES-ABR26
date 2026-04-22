@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Building2, Users, Receipt, Calendar, BarChart3, Search, Bell, Wallet, RefreshCw, Database, AlertCircle, Download, Upload } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import PropertiesManager from './components/PropertiesManager';
@@ -11,6 +11,7 @@ import { propertiesService } from './services/properties.service';
 import { tenantsService } from './services/tenants.service';
 import { receiptsService } from './services/receipts.service';
 import { cashMovementsService } from './services/cashMovements.service';
+import { tenantAdjustmentsService } from './services/tenantAdjustments.service';
 import { autoReceiptsService } from './services/autoReceipts.service';
 import { buildingsService } from './services/buildings.service';
 import { supabase } from './lib/supabase';
@@ -20,7 +21,7 @@ type TabType = 'dashboard' | 'properties' | 'tenants' | 'receipts' | 'history' |
 
 function AppWithSupabase() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
-  const { properties, tenants, receipts, cashMovements, loading, error, refetch, syncFromLocalStorage } = useSupabaseData();
+  const { properties, tenants, receipts, cashMovements, tenantAdjustments, loading, error, refetch, syncFromLocalStorage } = useSupabaseData();
   const [syncing, setSyncing] = useState(false);
   const [showSyncButton, setShowSyncButton] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,23 +29,6 @@ function AppWithSupabase() {
   const [isImporting, setIsImporting] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
-
-  const [tenantAdjustments, setTenantAdjustments] = useState<TenantAdjustment[]>(() => {
-    try {
-      const saved = localStorage.getItem('tenantAdjustments');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('tenantAdjustments', JSON.stringify(tenantAdjustments));
-    } catch {
-      // ignore storage errors
-    }
-  }, [tenantAdjustments]);
 
   const showNotif = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -465,6 +449,20 @@ function AppWithSupabase() {
     await refetch();
   };
 
+  const addTenantAdjustment = async (tenantName: string, data: { date: string; amount: number; reason: string }) => {
+    const dbTenants = await tenantsService.getAll();
+    const dbTenant = dbTenants.find(t => t.name === tenantName);
+
+    await tenantAdjustmentsService.create({
+      tenant_id: dbTenant?.id ?? null,
+      tenant_name: tenantName,
+      date: data.date,
+      amount: data.amount,
+      reason: data.reason,
+    });
+    await refetch();
+  };
+
   const updateTenantBalance = async (tenantName: string, newBalance: number) => {
     const dbTenants = await tenantsService.getAll();
     const dbTenant = dbTenants.find(t => t.name === tenantName);
@@ -608,7 +606,7 @@ function AppWithSupabase() {
           receipts={receipts}
           updatePropertyTenant={updatePropertyTenant}
           adjustments={tenantAdjustments}
-          setAdjustments={setTenantAdjustments}
+          addAdjustment={addTenantAdjustment}
         />;
       case 'receipts':
         return <ReceiptsManager

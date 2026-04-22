@@ -10,10 +10,10 @@ interface TenantsManagerProps {
   receipts: Receipt[];
   updatePropertyTenant: (propertyId: number | null, tenantName: string | null, oldPropertyId?: number | null) => void;
   adjustments: TenantAdjustment[];
-  setAdjustments: React.Dispatch<React.SetStateAction<TenantAdjustment[]>>;
+  addAdjustment: (tenantName: string, data: { date: string; amount: number; reason: string }) => Promise<void>;
 }
 
-const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, properties, receipts, updatePropertyTenant, adjustments, setAdjustments }) => {
+const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, properties, receipts, updatePropertyTenant, adjustments, addAdjustment }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [showAccountStatement, setShowAccountStatement] = useState(false);
@@ -448,7 +448,7 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
           tenant={selectedTenant}
           receipts={receipts}
           adjustments={adjustments}
-          setAdjustments={setAdjustments}
+          addAdjustment={addAdjustment}
           onClose={() => {
             setShowAccountStatement(false);
             setSelectedTenant(null);
