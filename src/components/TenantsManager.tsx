@@ -10,10 +10,10 @@ interface TenantsManagerProps {
   receipts: Receipt[];
   updatePropertyTenant: (propertyId: number | null, tenantName: string | null, oldPropertyId?: number | null) => void;
   adjustments: TenantAdjustment[];
-  setAdjustments: React.Dispatch<React.SetStateAction<TenantAdjustment[]>>;
+  onAddAdjustment: (adjustment: Omit<TenantAdjustment, 'id'>) => Promise<void>;
 }
 
-const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, properties, receipts, updatePropertyTenant, adjustments, setAdjustments }) => {
+const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, properties, receipts, updatePropertyTenant, adjustments, onAddAdjustment }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [showAccountStatement, setShowAccountStatement] = useState(false);
@@ -34,10 +34,10 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const selectedProperty = properties.find(p => p.id.toString() === formData.propertyId);
     const oldPropertyId = editingTenant?.propertyId;
-    
+
     const newTenant: Tenant = {
       id: editingTenant ? editingTenant.id : Date.now(),
       name: formData.name,
@@ -59,19 +59,17 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
 
     if (editingTenant) {
       setTenants(tenants.map(t => t.id === editingTenant.id ? newTenant : t));
-      // Actualizar propiedades si cambió la asignación
       if (oldPropertyId !== newTenant.propertyId) {
         updatePropertyTenant(newTenant.propertyId, newTenant.name, oldPropertyId);
       }
     } else {
       setTenants([...tenants, newTenant]);
-      // Asignar propiedad al nuevo inquilino
       if (newTenant.propertyId) {
         updatePropertyTenant(newTenant.propertyId, newTenant.name);
       }
     }
 
-    setFormData({ 
+    setFormData({
       name: '', email: '', phone: '', propertyId: '', contractStart: '', contractEnd: '', deposit: '',
       guarantorName: '', guarantorEmail: '', guarantorPhone: ''
     });
@@ -100,7 +98,6 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
     if (confirm('¿Está seguro de eliminar este inquilino?')) {
       const tenant = tenants.find(t => t.id === id);
       if (tenant?.propertyId) {
-        // Liberar la propiedad
         updatePropertyTenant(null, null, tenant.propertyId);
       }
       setTenants(tenants.filter(t => t.id !== id));
@@ -116,7 +113,6 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
     }
   };
 
-  // Obtener propiedades disponibles (no ocupadas) más la propiedad actual del inquilino
   const getAvailableProperties = () => {
     return properties.filter(property =>
       property.status === 'disponible' ||
@@ -124,7 +120,6 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
     );
   };
 
-  // Calcular deuda real de cada inquilino basándose en los recibos y ajustes
   const getTenantDebt = (tenantName: string): number => {
     const tenantReceipts = receipts.filter(r =>
       r.tenant.toLowerCase() === tenantName.toLowerCase()
@@ -141,10 +136,8 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
     setShowAccountStatement(true);
   };
 
-
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Inquilinos</h2>
@@ -163,33 +156,18 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
         </button>
       </div>
 
-      {/* Tenants Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Inquilino
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contacto
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Propiedad
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contrato
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Saldo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inquilino</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Propiedad</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contrato</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -208,12 +186,8 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">{tenant.name}</div>
-                        <div className="text-sm text-gray-500">
-                          Depósito: ${tenant.deposit.toLocaleString()}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Garante: {tenant.guarantor.name}
-                        </div>
+                        <div className="text-sm text-gray-500">Depósito: ${tenant.deposit.toLocaleString()}</div>
+                        <div className="text-sm text-gray-500">Garante: {tenant.guarantor.name}</div>
                       </div>
                     </div>
                   </td>
@@ -238,9 +212,7 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
                         <Calendar className="h-4 w-4 mr-2 text-gray-400" />
                         Inicio: {tenant.contractStart}
                       </div>
-                      <div className="text-sm text-gray-500">
-                        Vence: {tenant.contractEnd}
-                      </div>
+                      <div className="text-sm text-gray-500">Vence: {tenant.contractEnd}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -251,9 +223,7 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
                           <div className={`text-sm font-semibold ${debt > 0 ? 'text-red-600' : 'text-green-600'}`}>
                             ${debt.toLocaleString()}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {debt > 0 ? 'Debe' : 'Al día'}
-                          </div>
+                          <div className="text-xs text-gray-500">{debt > 0 ? 'Debe' : 'Al día'}</div>
                         </>
                       );
                     })()}
@@ -288,167 +258,80 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
         </div>
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               {editingTenant ? 'Editar Inquilino' : 'Agregar Nuevo Inquilino'}
             </h3>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
+                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
+                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
+                  <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Propiedad Asignada</label>
-                  <select
-                    value={formData.propertyId}
-                    onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
+                  <select value={formData.propertyId} onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="">Sin propiedad asignada</option>
                     {getAvailableProperties().map((property) => (
-                      <option key={property.id} value={property.id.toString()}>
-                        {property.name} - {property.building} (${property.rent.toLocaleString()})
-                      </option>
+                      <option key={property.id} value={property.id.toString()}>{property.name} - {property.building} (${property.rent.toLocaleString()})</option>
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Inicio de contrato</label>
-                  <input
-                    type="date"
-                    value={formData.contractStart}
-                    onChange={(e) => setFormData({ ...formData, contractStart: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
+                  <input type="date" value={formData.contractStart} onChange={(e) => setFormData({ ...formData, contractStart: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fin de contrato</label>
-                  <input
-                    type="date"
-                    value={formData.contractEnd}
-                    onChange={(e) => setFormData({ ...formData, contractEnd: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
+                  <input type="date" value={formData.contractEnd} onChange={(e) => setFormData({ ...formData, contractEnd: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Depósito ($)</label>
-                <input
-                  type="number"
-                  value={formData.deposit}
-                  onChange={(e) => setFormData({ ...formData, deposit: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
+                <input type="number" value={formData.deposit} onChange={(e) => setFormData({ ...formData, deposit: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
               </div>
-
               <div className="md:col-span-2">
                 <h4 className="text-md font-medium text-gray-900 mb-3">Datos del Garante</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del garante</label>
-                    <input
-                      type="text"
-                      value={formData.guarantorName}
-                      onChange={(e) => setFormData({ ...formData, guarantorName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
+                    <input type="text" value={formData.guarantorName} onChange={(e) => setFormData({ ...formData, guarantorName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Email del garante</label>
-                    <input
-                      type="email"
-                      value={formData.guarantorEmail}
-                      onChange={(e) => setFormData({ ...formData, guarantorEmail: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
+                    <input type="email" value={formData.guarantorEmail} onChange={(e) => setFormData({ ...formData, guarantorEmail: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono del garante</label>
-                    <input
-                      type="tel"
-                      value={formData.guarantorPhone}
-                      onChange={(e) => setFormData({ ...formData, guarantorPhone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
+                    <input type="tel" value={formData.guarantorPhone} onChange={(e) => setFormData({ ...formData, guarantorPhone: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required />
                   </div>
                 </div>
               </div>
-
               <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    setEditingTenant(null);
-                  }}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  {editingTenant ? 'Actualizar' : 'Agregar'}
-                </button>
+                <button type="button" onClick={() => { setShowModal(false); setEditingTenant(null); }} className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">{editingTenant ? 'Actualizar' : 'Agregar'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Account Statement Modal */}
       {showAccountStatement && selectedTenant && (
         <TenantAccountStatement
           tenant={selectedTenant}
           receipts={receipts}
           adjustments={adjustments}
-          setAdjustments={setAdjustments}
+          onAddAdjustment={onAddAdjustment}
           onClose={() => {
             setShowAccountStatement(false);
             setSelectedTenant(null);

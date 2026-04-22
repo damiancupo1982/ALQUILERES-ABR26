@@ -12,6 +12,7 @@ import {
   X,
   Check,
   AlertCircle,
+  Share2,
 } from 'lucide-react';
 import { Tenant, Property, Receipt } from '../App';
 
@@ -203,11 +204,6 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
 
     if (totalPaying <= 0) {
       alert('Debe ingresar al menos un monto de pago');
-      return;
-    }
-
-    if (totalPaying > payingReceipt.remainingBalance) {
-      alert('El monto total no puede ser mayor al saldo pendiente');
       return;
     }
 
@@ -472,6 +468,31 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
   const viewReceipt = (receipt: Receipt) => {
     setSelectedReceipt(receipt);
     setShowReceiptModal(true);
+  };
+
+  const shareReceipt = async (receipt: Receipt) => {
+    const text = [
+      `RECIBO DE ALQUILER`,
+      `Nro: ${receipt.receiptNumber}`,
+      `Inquilino: ${receipt.tenant}`,
+      `Propiedad: ${receipt.property}`,
+      `Período: ${receipt.month} ${receipt.year}`,
+      `Total: ${currencyFormatter(safeNumber(receipt.total), receipt.currency)}`,
+      receipt.paidAmount > 0 ? `Pagado: ${currencyFormatter(safeNumber(receipt.paidAmount), receipt.currency)}` : null,
+      receipt.remainingBalance > 0 ? `Saldo pendiente: ${currencyFormatter(safeNumber(receipt.remainingBalance), receipt.currency)}` : null,
+      `Vencimiento: ${receipt.dueDate || '-'}`,
+    ].filter(Boolean).join('\n');
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `Recibo ${receipt.receiptNumber}`, text });
+      } catch {
+        // user cancelled
+      }
+    } else {
+      await navigator.clipboard.writeText(text);
+      alert('Datos del recibo copiados al portapapeles');
+    }
   };
 
   const getStatusColor = (status: Receipt['status']) => {
@@ -1102,9 +1123,11 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
                   {currencyFormatter(paymentData.totalPaying, 'ARS')}
                 </div>
                 {paymentData.totalPaying > safeNumber(payingReceipt.remainingBalance) && (
-                  <div className="text-sm text-red-600 mt-1">
+                  <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
                     <AlertCircle className="h-4 w-4 inline mr-1" />
-                    El monto excede el saldo pendiente
+                    El pago supera el saldo pendiente. El sobrante de{' '}
+                    <strong>{currencyFormatter(paymentData.totalPaying - safeNumber(payingReceipt.remainingBalance), 'ARS')}</strong>{' '}
+                    quedará a favor del inquilino.
                   </div>
                 )}
               </div>
@@ -1123,10 +1146,7 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
               <button
                 onClick={handlePayment}
                 className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                disabled={
-                  paymentData.totalPaying <= 0 ||
-                  paymentData.totalPaying > safeNumber(payingReceipt.remainingBalance)
-                }
+                disabled={paymentData.totalPaying <= 0}
               >
                 <Check className="h-4 w-4" />
                 <span>Confirmar Pago</span>
@@ -1317,7 +1337,7 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3">
+            <div className="flex flex-wrap justify-end gap-3">
               <button
                 onClick={() => {
                   setShowReceiptModal(false);
@@ -1328,12 +1348,31 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
                 Cerrar
               </button>
               <button
+                onClick={() => shareReceipt(selectedReceipt)}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Share2 className="h-4 w-4" />
+                <span>Compartir</span>
+              </button>
+              <button
                 onClick={() => printReceipt(selectedReceipt)}
                 className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
                 <Printer className="h-4 w-4" />
                 <span>Imprimir</span>
               </button>
+              {safeNumber(selectedReceipt.remainingBalance) > 0 && (
+                <button
+                  onClick={() => {
+                    setShowReceiptModal(false);
+                    openPaymentModal(selectedReceipt);
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                  <DollarSign className="h-4 w-4" />
+                  <span>Registrar Pago</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
