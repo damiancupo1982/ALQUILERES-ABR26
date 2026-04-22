@@ -9,7 +9,7 @@ export default {
       colors: {
         // Remap gray → slate tones for cooler, more professional neutrals
         gray: {
-          50:  '#f8fafc',
+          50:  '#e8f4f8',
           100: '#f1f5f9',
           200: '#e2e8f0',
           300: '#cbd5e1',
