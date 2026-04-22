@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, DollarSign, Filter, Download, TrendingUp, Search, Eye, Printer, X, FileText } from 'lucide-react';
+import { Calendar, DollarSign, Filter, Download, TrendingUp, Search, Eye, Printer, X, FileText, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { Receipt, Property, Tenant } from '../App';
 import MonthlySummary from './MonthlySummary';
 
@@ -20,6 +20,8 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
   const [showMonthlySummary, setShowMonthlySummary] = useState(false);
+  const [sortField, setSortField] = useState<'paymentDate' | 'receiptNumber' | 'tenant' | 'property' | 'building' | 'amount' | 'paymentMethod' | 'status' | 'month'>('paymentDate');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Convertir receipts a formato de payments para compatibilidad
   const payments = receipts.map(receipt => ({
@@ -112,6 +114,50 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
       case 'pendiente_confirmacion': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const monthOrder = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+  };
+
+  const sortedPayments = [...filteredPayments].sort((a, b) => {
+    let cmp = 0;
+    if (sortField === 'paymentDate') {
+      cmp = (a.paymentDate || '').localeCompare(b.paymentDate || '');
+    } else if (sortField === 'receiptNumber') {
+      cmp = a.receiptNumber.localeCompare(b.receiptNumber);
+    } else if (sortField === 'tenant') {
+      cmp = a.tenant.localeCompare(b.tenant);
+    } else if (sortField === 'property') {
+      cmp = a.property.localeCompare(b.property);
+    } else if (sortField === 'building') {
+      cmp = (a.building || '').localeCompare(b.building || '');
+    } else if (sortField === 'amount') {
+      cmp = a.amount - b.amount;
+    } else if (sortField === 'paymentMethod') {
+      cmp = a.paymentMethod.localeCompare(b.paymentMethod);
+    } else if (sortField === 'status') {
+      cmp = a.status.localeCompare(b.status);
+    } else if (sortField === 'month') {
+      const aIdx = (a.receipt?.year ?? 0) * 12 + monthOrder.indexOf(a.month);
+      const bIdx = (b.receipt?.year ?? 0) * 12 + monthOrder.indexOf(b.month);
+      cmp = aIdx - bIdx;
+    }
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
+    if (sortField !== field) return <ChevronsUpDown className="inline h-3 w-3 ml-1 text-gray-400" />;
+    return sortDir === 'asc'
+      ? <ChevronUp className="inline h-3 w-3 ml-1 text-blue-600" />
+      : <ChevronDown className="inline h-3 w-3 ml-1 text-blue-600" />;
   };
 
   const viewReceipt = (payment: any) => {
@@ -457,71 +503,77 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('paymentDate')}>
+                  Fecha <SortIcon field="paymentDate" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Recibo
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('month')}>
+                  Período <SortIcon field="month" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Inquilino
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('receiptNumber')}>
+                  Recibo <SortIcon field="receiptNumber" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Propiedad
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('tenant')}>
+                  Inquilino <SortIcon field="tenant" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Edificio
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('property')}>
+                  Propiedad <SortIcon field="property" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Monto
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('building')}>
+                  Edificio <SortIcon field="building" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Método
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('amount')}>
+                  Monto <SortIcon field="amount" />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('paymentMethod')}>
+                  Método <SortIcon field="paymentMethod" />
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('status')}>
+                  Estado <SortIcon field="status" />
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredPayments.map((payment) => (
+              {sortedPayments.map((payment) => (
                 <tr
                   key={payment.id}
                   className="hover:bg-blue-50 cursor-pointer transition-colors"
                   onClick={() => viewReceipt(payment)}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center">
-                      <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                      <span className="text-sm text-gray-900">{payment.paymentDate}</span>
+                      <Calendar className="h-3.5 w-3.5 text-gray-400 mr-1.5" />
+                      <span className="text-xs text-gray-900">{payment.paymentDate}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-medium text-gray-900">{payment.receiptNumber}</span>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-xs text-gray-700">{payment.month} {payment.year}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">{payment.tenant}</span>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-xs font-medium text-gray-900">{payment.receiptNumber}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">{payment.property}</span>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-xs text-gray-900">{payment.tenant}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-600">{payment.building}</span>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-xs text-gray-900">{payment.property}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-semibold text-gray-900">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-xs text-gray-600">{payment.building}</span>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-xs font-semibold text-gray-900">
                       {payment.receipt?.currency === 'USD' ? 'U$S ' : '$'}{payment.amount.toLocaleString()}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">{getPaymentMethodLabel(payment.paymentMethod)}</span>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-xs text-gray-900">{getPaymentMethodLabel(payment.paymentMethod)}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(payment.status)}`}>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(payment.status)}`}>
                       {payment.status === 'confirmado' ? 'Confirmado' : 'Pendiente'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       <button
                         onClick={(e) => {

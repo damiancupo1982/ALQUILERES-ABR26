@@ -13,6 +13,9 @@ import {
   Check,
   AlertCircle,
   Share2,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { Tenant, Property, Receipt } from '../App';
 
@@ -55,6 +58,8 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
   const [showUpdateAlert, setShowUpdateAlert] = useState(false);
   const [updateAlertMessage, setUpdateAlertMessage] = useState('');
+  const [sortField, setSortField] = useState<'id' | 'month' | 'tenant' | 'property' | 'status' | 'total' | 'dueDate'>('id');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const [formData, setFormData] = useState({
     tenant: '',
@@ -554,6 +559,46 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
     }
   };
 
+  const monthOrder = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  const sortedReceipts = [...(receipts || [])].sort((a, b) => {
+    let cmp = 0;
+    if (sortField === 'id') {
+      cmp = a.id - b.id;
+    } else if (sortField === 'month') {
+      const aIdx = a.year * 12 + monthOrder.indexOf(a.month);
+      const bIdx = b.year * 12 + monthOrder.indexOf(b.month);
+      cmp = aIdx - bIdx;
+    } else if (sortField === 'tenant') {
+      cmp = a.tenant.localeCompare(b.tenant);
+    } else if (sortField === 'property') {
+      cmp = a.property.localeCompare(b.property);
+    } else if (sortField === 'status') {
+      cmp = a.status.localeCompare(b.status);
+    } else if (sortField === 'total') {
+      cmp = safeNumber(a.total) - safeNumber(b.total);
+    } else if (sortField === 'dueDate') {
+      cmp = (a.dueDate || '').localeCompare(b.dueDate || '');
+    }
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
+    if (sortField !== field) return <ChevronsUpDown className="inline h-3 w-3 ml-1 text-gray-400" />;
+    return sortDir === 'asc'
+      ? <ChevronUp className="inline h-3 w-3 ml-1 text-blue-600" />
+      : <ChevronDown className="inline h-3 w-3 ml-1 text-blue-600" />;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -581,26 +626,29 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
           <table className="w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Recibo
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('id')}>
+                  Recibo <SortIcon field="id" />
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Inquilino
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('tenant')}>
+                  Inquilino <SortIcon field="tenant" />
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Propiedad
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('property')}>
+                  Propiedad <SortIcon field="property" />
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Período
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('month')}>
+                  Período <SortIcon field="month" />
                 </th>
-                <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                  Total
+                <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('total')}>
+                  Total <SortIcon field="total" />
                 </th>
                 <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">
                   Pagado
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  Estado
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('status')}>
+                  Estado <SortIcon field="status" />
+                </th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('dueDate')}>
+                  Vence <SortIcon field="dueDate" />
                 </th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                   Acciones
@@ -608,7 +656,7 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {(receipts || []).map((receipt) => (
+              {sortedReceipts.map((receipt) => (
                 <tr
                   key={receipt.id}
                   className="hover:bg-blue-50 cursor-pointer transition-colors"
@@ -617,13 +665,8 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
                   <td className="px-2 py-2 whitespace-nowrap">
                     <div className="flex items-center">
                       <ReceiptIcon className="h-3 w-3 text-gray-400 mr-1" />
-                      <div>
-                        <div className="text-xs font-medium text-gray-900">
-                          {receipt.receiptNumber}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {receipt.dueDate || '-'}
-                        </div>
+                      <div className="text-xs font-medium text-gray-900">
+                        {receipt.receiptNumber}
                       </div>
                     </div>
                   </td>
@@ -677,6 +720,9 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
                     >
                       {getStatusLabel(receipt.status)}
                     </span>
+                  </td>
+                  <td className="px-2 py-2 whitespace-nowrap">
+                    <div className="text-xs text-gray-700">{receipt.dueDate || '—'}</div>
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-1">
