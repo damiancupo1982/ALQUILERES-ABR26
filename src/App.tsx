@@ -473,9 +473,7 @@ function App() {
           receipts={receipts}
           updatePropertyTenant={updatePropertyTenant}
           adjustments={tenantAdjustments}
-          onAddAdjustment={async (adj) => {
-            setTenantAdjustments(prev => [...prev, { ...adj, id: Date.now() }]);
-          }}
+          setAdjustments={setTenantAdjustments}
         />;
       case 'receipts':
         return <ReceiptsManager
