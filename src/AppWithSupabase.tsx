@@ -11,7 +11,6 @@ import { propertiesService } from './services/properties.service';
 import { tenantsService } from './services/tenants.service';
 import { receiptsService } from './services/receipts.service';
 import { cashMovementsService } from './services/cashMovements.service';
-import { tenantAdjustmentsService } from './services/tenantAdjustments.service';
 import { autoReceiptsService } from './services/autoReceipts.service';
 import { buildingsService } from './services/buildings.service';
 import { supabase } from './lib/supabase';
@@ -21,7 +20,7 @@ type TabType = 'dashboard' | 'properties' | 'tenants' | 'receipts' | 'history' |
 
 function AppWithSupabase() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
-  const { properties, tenants, receipts, cashMovements, adjustments, loading, error, refetch, syncFromLocalStorage } = useSupabaseData();
+  const { properties, tenants, receipts, cashMovements, loading, error, refetch, syncFromLocalStorage } = useSupabaseData();
   const [syncing, setSyncing] = useState(false);
   const [showSyncButton, setShowSyncButton] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,15 +29,22 @@ function AppWithSupabase() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAddAdjustment = async (adjustment: Omit<TenantAdjustment, 'id'>) => {
-    await tenantAdjustmentsService.create({
-      tenant_name: adjustment.tenant,
-      date: adjustment.date,
-      amount: adjustment.amount,
-      reason: adjustment.reason,
-    });
-    await refetch();
-  };
+  const [tenantAdjustments, setTenantAdjustments] = useState<TenantAdjustment[]>(() => {
+    try {
+      const saved = localStorage.getItem('tenantAdjustments');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tenantAdjustments', JSON.stringify(tenantAdjustments));
+    } catch {
+      // ignore storage errors
+    }
+  }, [tenantAdjustments]);
 
   const showNotif = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -156,28 +162,54 @@ function AppWithSupabase() {
 
   const setProperties = async (updater: React.SetStateAction<Property[]>) => {
     const newProperties = typeof updater === 'function' ? updater(properties) : updater;
+
     const oldProperties = properties;
 
     for (const prop of newProperties) {
       const oldProp = oldProperties.find(p => p.id === prop.id);
+
       if (!oldProp) {
         await propertiesService.create({
-          name: prop.name, type: prop.type, building: prop.building, address: prop.address,
-          rent: prop.rent, rent_currency: prop.rentCurrency, expenses: prop.expenses,
-          expenses_currency: prop.expensesCurrency, next_update_date: prop.nextUpdateDate || null,
-          tenant_name: prop.tenant || null, status: prop.status, contract_start: prop.contractStart || null,
-          contract_end: prop.contractEnd || null, last_updated: prop.lastUpdated, notes: prop.notes
+          name: prop.name,
+          type: prop.type,
+          building: prop.building,
+          address: prop.address,
+          rent: prop.rent,
+          rent_currency: prop.rentCurrency,
+          expenses: prop.expenses,
+          expenses_currency: prop.expensesCurrency,
+          next_update_date: prop.nextUpdateDate || null,
+          tenant_name: prop.tenant || null,
+          status: prop.status,
+          contract_start: prop.contractStart || null,
+          contract_end: prop.contractEnd || null,
+          last_updated: prop.lastUpdated,
+          notes: prop.notes
         });
       } else if (JSON.stringify(oldProp) !== JSON.stringify(prop)) {
         const dbProperties = await propertiesService.getAll();
-        const dbProp = dbProperties.find(p => p.name === oldProp.name && p.building === oldProp.building);
+        const dbProp = dbProperties.find(p =>
+          p.name === oldProp.name &&
+          p.building === oldProp.building
+        );
+
         if (dbProp) {
           await propertiesService.update(dbProp.id, {
-            name: prop.name, type: prop.type, building: prop.building, address: prop.address,
-            rent: prop.rent, rent_currency: prop.rentCurrency, expenses: prop.expenses,
-            expenses_currency: prop.expensesCurrency, next_update_date: prop.nextUpdateDate || null,
-            tenant_name: prop.tenant || null, status: prop.status, contract_start: prop.contractStart || null,
-            contract_end: prop.contractEnd || null, last_updated: prop.lastUpdated, notes: prop.notes
+            name: prop.name,
+            type: prop.type,
+            building: prop.building,
+            address: prop.address,
+            rent: prop.rent,
+            rent_currency: prop.rentCurrency,
+            expenses: prop.expenses,
+            expenses_currency: prop.expensesCurrency,
+            next_update_date: prop.nextUpdateDate || null,
+            tenant_name: prop.tenant || null,
+            status: prop.status,
+            contract_start: prop.contractStart || null,
+            contract_end: prop.contractEnd || null,
+            last_updated: prop.lastUpdated,
+            notes: prop.notes
           });
         }
       }
@@ -187,8 +219,14 @@ function AppWithSupabase() {
       const stillExists = newProperties.find(p => p.id === oldProp.id);
       if (!stillExists) {
         const dbProperties = await propertiesService.getAll();
-        const dbProp = dbProperties.find(p => p.name === oldProp.name && p.building === oldProp.building);
-        if (dbProp) await propertiesService.delete(dbProp.id);
+        const dbProp = dbProperties.find(p =>
+          p.name === oldProp.name &&
+          p.building === oldProp.building
+        );
+
+        if (dbProp) {
+          await propertiesService.delete(dbProp.id);
+        }
       }
     }
 
@@ -197,45 +235,84 @@ function AppWithSupabase() {
 
   const setTenants = async (updater: React.SetStateAction<Tenant[]>) => {
     const newTenants = typeof updater === 'function' ? updater(tenants) : updater;
+
     const oldTenants = tenants;
 
     for (const tenant of newTenants) {
       const oldTenant = oldTenants.find(t => t.id === tenant.id);
+
       if (!oldTenant) {
         const dbProperties = await propertiesService.getAll();
         let dbPropertyId = null;
+
         if (tenant.propertyId) {
           const property = properties.find(p => p.id === tenant.propertyId);
           if (property) {
-            const dbProperty = dbProperties.find(p => p.name === property.name && p.building === property.building);
-            if (dbProperty) dbPropertyId = dbProperty.id;
+            const dbProperty = dbProperties.find(p =>
+              p.name === property.name &&
+              p.building === property.building
+            );
+            if (dbProperty) {
+              dbPropertyId = dbProperty.id;
+            }
           }
         }
+
         const newTenant = await tenantsService.create({
-          name: tenant.name, email: tenant.email, phone: tenant.phone, property_id: dbPropertyId,
-          contract_start: tenant.contractStart, contract_end: tenant.contractEnd, deposit: tenant.deposit,
-          guarantor_name: tenant.guarantor.name, guarantor_email: tenant.guarantor.email,
-          guarantor_phone: tenant.guarantor.phone, balance: tenant.balance, status: tenant.status
+          name: tenant.name,
+          email: tenant.email,
+          phone: tenant.phone,
+          property_id: dbPropertyId,
+          contract_start: tenant.contractStart,
+          contract_end: tenant.contractEnd,
+          deposit: tenant.deposit,
+          guarantor_name: tenant.guarantor.name,
+          guarantor_email: tenant.guarantor.email,
+          guarantor_phone: tenant.guarantor.phone,
+          balance: tenant.balance,
+          status: tenant.status
         });
-        if (newTenant?.id) await autoReceiptsService.generateReceiptForNewTenant(newTenant.id);
+
+        if (newTenant?.id) {
+          await autoReceiptsService.generateReceiptForNewTenant(newTenant.id);
+        }
       } else if (JSON.stringify(oldTenant) !== JSON.stringify(tenant)) {
         const dbTenants = await tenantsService.getAll();
-        const dbTenant = dbTenants.find(t => t.name === oldTenant.name && t.email === oldTenant.email);
+        const dbTenant = dbTenants.find(t =>
+          t.name === oldTenant.name &&
+          t.email === oldTenant.email
+        );
+
         if (dbTenant) {
           const dbProperties = await propertiesService.getAll();
           let dbPropertyId = null;
+
           if (tenant.propertyId) {
             const property = properties.find(p => p.id === tenant.propertyId);
             if (property) {
-              const dbProperty = dbProperties.find(p => p.name === property.name && p.building === property.building);
-              if (dbProperty) dbPropertyId = dbProperty.id;
+              const dbProperty = dbProperties.find(p =>
+                p.name === property.name &&
+                p.building === property.building
+              );
+              if (dbProperty) {
+                dbPropertyId = dbProperty.id;
+              }
             }
           }
+
           await tenantsService.update(dbTenant.id, {
-            name: tenant.name, email: tenant.email, phone: tenant.phone, property_id: dbPropertyId,
-            contract_start: tenant.contractStart, contract_end: tenant.contractEnd, deposit: tenant.deposit,
-            guarantor_name: tenant.guarantor.name, guarantor_email: tenant.guarantor.email,
-            guarantor_phone: tenant.guarantor.phone, balance: tenant.balance, status: tenant.status
+            name: tenant.name,
+            email: tenant.email,
+            phone: tenant.phone,
+            property_id: dbPropertyId,
+            contract_start: tenant.contractStart,
+            contract_end: tenant.contractEnd,
+            deposit: tenant.deposit,
+            guarantor_name: tenant.guarantor.name,
+            guarantor_email: tenant.guarantor.email,
+            guarantor_phone: tenant.guarantor.phone,
+            balance: tenant.balance,
+            status: tenant.status
           });
         }
       }
@@ -245,8 +322,14 @@ function AppWithSupabase() {
       const stillExists = newTenants.find(t => t.id === oldTenant.id);
       if (!stillExists) {
         const dbTenants = await tenantsService.getAll();
-        const dbTenant = dbTenants.find(t => t.name === oldTenant.name && t.email === oldTenant.email);
-        if (dbTenant) await tenantsService.delete(dbTenant.id);
+        const dbTenant = dbTenants.find(t =>
+          t.name === oldTenant.name &&
+          t.email === oldTenant.email
+        );
+
+        if (dbTenant) {
+          await tenantsService.delete(dbTenant.id);
+        }
       }
     }
 
@@ -255,29 +338,55 @@ function AppWithSupabase() {
 
   const setReceipts = async (updater: React.SetStateAction<ReceiptType[]>) => {
     const newReceipts = typeof updater === 'function' ? updater(receipts) : updater;
+
     const oldReceipts = receipts;
 
     for (const receipt of newReceipts) {
       const oldReceipt = oldReceipts.find(r => r.id === receipt.id);
+
       if (!oldReceipt) {
         await receiptsService.create({
-          receipt_number: receipt.receiptNumber, tenant_name: receipt.tenant, property_name: receipt.property,
-          building: receipt.building, month: receipt.month, year: receipt.year, rent: receipt.rent,
-          expenses: receipt.expenses, other_charges: receipt.otherCharges, previous_balance: receipt.previousBalance,
-          total: receipt.total, paid_amount: receipt.paidAmount, remaining_balance: receipt.remainingBalance,
-          currency: receipt.currency, payment_method: receipt.paymentMethod, status: receipt.status,
-          due_date: receipt.dueDate, created_date: receipt.createdDate
+          receipt_number: receipt.receiptNumber,
+          tenant_name: receipt.tenant,
+          property_name: receipt.property,
+          building: receipt.building,
+          month: receipt.month,
+          year: receipt.year,
+          rent: receipt.rent,
+          expenses: receipt.expenses,
+          other_charges: receipt.otherCharges,
+          previous_balance: receipt.previousBalance,
+          total: receipt.total,
+          paid_amount: receipt.paidAmount,
+          remaining_balance: receipt.remainingBalance,
+          currency: receipt.currency,
+          payment_method: receipt.paymentMethod,
+          status: receipt.status,
+          due_date: receipt.dueDate,
+          created_date: receipt.createdDate
         });
       } else if (JSON.stringify(oldReceipt) !== JSON.stringify(receipt)) {
         const dbReceipts = await receiptsService.getAll();
         const dbReceipt = dbReceipts.find(r => r.receipt_number === receipt.receiptNumber);
+
         if (dbReceipt) {
           await receiptsService.update(dbReceipt.id, {
-            tenant_name: receipt.tenant, property_name: receipt.property, building: receipt.building,
-            month: receipt.month, year: receipt.year, rent: receipt.rent, expenses: receipt.expenses,
-            other_charges: receipt.otherCharges, previous_balance: receipt.previousBalance, total: receipt.total,
-            paid_amount: receipt.paidAmount, remaining_balance: receipt.remainingBalance, currency: receipt.currency,
-            payment_method: receipt.paymentMethod, status: receipt.status, due_date: receipt.dueDate,
+            tenant_name: receipt.tenant,
+            property_name: receipt.property,
+            building: receipt.building,
+            month: receipt.month,
+            year: receipt.year,
+            rent: receipt.rent,
+            expenses: receipt.expenses,
+            other_charges: receipt.otherCharges,
+            previous_balance: receipt.previousBalance,
+            total: receipt.total,
+            paid_amount: receipt.paidAmount,
+            remaining_balance: receipt.remainingBalance,
+            currency: receipt.currency,
+            payment_method: receipt.paymentMethod,
+            status: receipt.status,
+            due_date: receipt.dueDate,
             created_date: receipt.createdDate
           });
         }
@@ -289,7 +398,10 @@ function AppWithSupabase() {
       if (!stillExists) {
         const dbReceipts = await receiptsService.getAll();
         const dbReceipt = dbReceipts.find(r => r.receipt_number === oldReceipt.receiptNumber);
-        if (dbReceipt) await receiptsService.delete(dbReceipt.id);
+
+        if (dbReceipt) {
+          await receiptsService.delete(dbReceipt.id);
+        }
       }
     }
 
@@ -298,15 +410,22 @@ function AppWithSupabase() {
 
   const setCashMovements = async (updater: React.SetStateAction<CashMovement[]>) => {
     const newMovements = typeof updater === 'function' ? updater(cashMovements) : updater;
+
     const oldMovements = cashMovements;
 
     for (const movement of newMovements) {
       const oldMovement = oldMovements.find(m => m.id === movement.id);
+
       if (!oldMovement) {
         await cashMovementsService.create({
-          type: movement.type, description: movement.description, amount: movement.amount,
-          currency: movement.currency, date: movement.date, tenant_name: movement.tenant || null,
-          property_name: movement.property || null, payment_method: movement.paymentMethod || null,
+          type: movement.type,
+          description: movement.description,
+          amount: movement.amount,
+          currency: movement.currency,
+          date: movement.date,
+          tenant_name: movement.tenant || null,
+          property_name: movement.property || null,
+          payment_method: movement.paymentMethod || null,
           delivery_type: movement.deliveryType || null
         });
       }
@@ -317,9 +436,14 @@ function AppWithSupabase() {
       if (!stillExists) {
         const dbMovements = await cashMovementsService.getAll();
         const dbMovement = dbMovements.find(m =>
-          m.description === oldMovement.description && m.date === oldMovement.date && m.amount === oldMovement.amount
+          m.description === oldMovement.description &&
+          m.date === oldMovement.date &&
+          m.amount === oldMovement.amount
         );
-        if (dbMovement) await cashMovementsService.delete(dbMovement.id);
+
+        if (dbMovement) {
+          await cashMovementsService.delete(dbMovement.id);
+        }
       }
     }
 
@@ -328,9 +452,14 @@ function AppWithSupabase() {
 
   const addCashMovement = async (movement: Omit<CashMovement, 'id'>) => {
     await cashMovementsService.create({
-      type: movement.type, description: movement.description, amount: movement.amount,
-      currency: movement.currency, date: movement.date, tenant_name: movement.tenant || null,
-      property_name: movement.property || null, payment_method: movement.paymentMethod || null,
+      type: movement.type,
+      description: movement.description,
+      amount: movement.amount,
+      currency: movement.currency,
+      date: movement.date,
+      tenant_name: movement.tenant || null,
+      property_name: movement.property || null,
+      payment_method: movement.paymentMethod || null,
       delivery_type: movement.deliveryType || null
     });
     await refetch();
@@ -339,6 +468,7 @@ function AppWithSupabase() {
   const updateTenantBalance = async (tenantName: string, newBalance: number) => {
     const dbTenants = await tenantsService.getAll();
     const dbTenant = dbTenants.find(t => t.name === tenantName);
+
     if (dbTenant) {
       await tenantsService.updateBalance(dbTenant.id, newBalance);
       await refetch();
@@ -351,16 +481,26 @@ function AppWithSupabase() {
     if (oldPropertyId) {
       const oldProp = properties.find(p => p.id === oldPropertyId);
       if (oldProp) {
-        const dbOldProp = dbProperties.find(p => p.name === oldProp.name && p.building === oldProp.building);
-        if (dbOldProp) await propertiesService.updateTenantAssignment(dbOldProp.id, null);
+        const dbOldProp = dbProperties.find(p =>
+          p.name === oldProp.name &&
+          p.building === oldProp.building
+        );
+        if (dbOldProp) {
+          await propertiesService.updateTenantAssignment(dbOldProp.id, null);
+        }
       }
     }
 
     if (propertyId) {
       const newProp = properties.find(p => p.id === propertyId);
       if (newProp) {
-        const dbNewProp = dbProperties.find(p => p.name === newProp.name && p.building === newProp.building);
-        if (dbNewProp) await propertiesService.updateTenantAssignment(dbNewProp.id, tenantName);
+        const dbNewProp = dbProperties.find(p =>
+          p.name === newProp.name &&
+          p.building === newProp.building
+        );
+        if (dbNewProp) {
+          await propertiesService.updateTenantAssignment(dbNewProp.id, tenantName);
+        }
       }
     }
 
@@ -378,6 +518,7 @@ function AppWithSupabase() {
 
   const filterData = <T extends Record<string, any>>(data: T[], searchFields: (keyof T)[]): T[] => {
     if (!searchQuery.trim()) return data;
+
     const query = searchQuery.toLowerCase();
     return data.filter(item =>
       searchFields.some(field => {
@@ -391,15 +532,25 @@ function AppWithSupabase() {
   const getFilteredData = () => {
     switch (activeTab) {
       case 'properties':
-        return { properties: filterData(properties, ['name', 'building', 'address', 'type', 'tenant', 'status']) };
+        return {
+          properties: filterData(properties, ['name', 'building', 'address', 'type', 'tenant', 'status'])
+        };
       case 'tenants':
-        return { tenants: filterData(tenants, ['name', 'email', 'phone', 'status']) };
+        return {
+          tenants: filterData(tenants, ['name', 'email', 'phone', 'status'])
+        };
       case 'receipts':
-        return { receipts: filterData(receipts, ['tenant', 'property', 'building', 'receiptNumber', 'status', 'month']) };
+        return {
+          receipts: filterData(receipts, ['tenant', 'property', 'building', 'receiptNumber', 'status', 'month'])
+        };
       case 'history':
-        return { receipts: filterData(receipts, ['tenant', 'property', 'building', 'receiptNumber', 'status', 'month']) };
+        return {
+          receipts: filterData(receipts, ['tenant', 'property', 'building', 'receiptNumber', 'status', 'month'])
+        };
       case 'cash':
-        return { cashMovements: filterData(cashMovements, ['description', 'type', 'tenant', 'property', 'paymentMethod']) };
+        return {
+          cashMovements: filterData(cashMovements, ['description', 'type', 'tenant', 'property', 'paymentMethod'])
+        };
       default:
         return { properties, tenants, receipts, cashMovements };
     }
@@ -425,7 +576,10 @@ function AppWithSupabase() {
             <div>
               <h4 className="text-sm font-semibold text-red-800">Error al cargar los datos</h4>
               <p className="text-sm text-red-700 mt-1">{error}</p>
-              <button onClick={refetch} className="mt-2 text-sm text-red-600 hover:text-red-700 underline">
+              <button
+                onClick={refetch}
+                className="mt-2 text-sm text-red-600 hover:text-red-700 underline"
+              >
                 Intentar de nuevo
               </button>
             </div>
@@ -438,7 +592,12 @@ function AppWithSupabase() {
 
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard tenants={tenants} receipts={receipts} properties={properties} setActiveTab={setActiveTab} />;
+        return <Dashboard
+          tenants={tenants}
+          receipts={receipts}
+          properties={properties}
+          setActiveTab={setActiveTab}
+        />;
       case 'properties':
         return <PropertiesManager properties={filtered.properties || properties} setProperties={setProperties} />;
       case 'tenants':
@@ -448,8 +607,8 @@ function AppWithSupabase() {
           properties={properties}
           receipts={receipts}
           updatePropertyTenant={updatePropertyTenant}
-          adjustments={adjustments}
-          onAddAdjustment={handleAddAdjustment}
+          adjustments={tenantAdjustments}
+          setAdjustments={setTenantAdjustments}
         />;
       case 'receipts':
         return <ReceiptsManager
@@ -463,7 +622,10 @@ function AppWithSupabase() {
       case 'history':
         return <PaymentsHistory receipts={filtered.receipts || receipts} properties={properties} tenants={tenants} />;
       case 'cash':
-        return <CashRegister cashMovements={filtered.cashMovements || cashMovements} setCashMovements={setCashMovements} />;
+        return <CashRegister
+          cashMovements={filtered.cashMovements || cashMovements}
+          setCashMovements={setCashMovements}
+        />;
       default:
         return <Dashboard tenants={tenants} receipts={receipts} properties={properties} setActiveTab={setActiveTab} />;
     }
@@ -510,7 +672,11 @@ function AppWithSupabase() {
                 <span>{isImporting ? 'Restaurando...' : 'Restaurar'}</span>
                 <input ref={importInputRef} type="file" accept=".json" onChange={handleImportFile} className="hidden" disabled={isImporting} />
               </label>
-              <button onClick={refetch} className="p-2 text-gray-400 hover:text-gray-600 transition-colors" title="Recargar datos">
+              <button
+                onClick={refetch}
+                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                title="Recargar datos"
+              >
                 <RefreshCw className="h-5 w-5" />
               </button>
               <div className="relative">
