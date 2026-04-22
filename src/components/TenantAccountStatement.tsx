@@ -6,7 +6,7 @@ interface TenantAccountStatementProps {
   tenant: Tenant;
   receipts: Receipt[];
   adjustments?: TenantAdjustment[];
-  setAdjustments?: React.Dispatch<React.SetStateAction<TenantAdjustment[]>>;
+  onAddAdjustment?: (adjustment: Omit<TenantAdjustment, 'id'>) => Promise<void>;
   onClose: () => void;
 }
 
@@ -25,15 +25,17 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
   tenant,
   receipts,
   adjustments = [],
-  setAdjustments,
+  onAddAdjustment,
   onClose,
 }) => {
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [savingAdjustment, setSavingAdjustment] = useState(false);
   const [adjustmentForm, setAdjustmentForm] = useState({
     date: new Date().toISOString().split('T')[0],
     amount: '',
     reason: '',
   });
+
   const movements = useMemo(() => {
     const tenantReceipts = receipts.filter(r =>
       r.tenant.toLowerCase() === tenant.name.toLowerCase()
@@ -45,7 +47,6 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
     const allMovements: Movement[] = [];
     let runningBalance = 0;
 
-    // Build raw events sorted by date
     type RawEvent =
       | { kind: 'receipt-debit'; date: string; receipt: Receipt }
       | { kind: 'receipt-credit'; date: string; receipt: Receipt }
@@ -67,7 +68,6 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
     rawEvents.sort((a, b) => {
       const diff = new Date(a.date).getTime() - new Date(b.date).getTime();
       if (diff !== 0) return diff;
-      // receipts before adjustments on same date for stable ordering
       if (a.kind === 'adjustment' && b.kind !== 'adjustment') return 1;
       if (a.kind !== 'adjustment' && b.kind === 'adjustment') return -1;
       return 0;
@@ -114,7 +114,7 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
             type: 'adjustment',
           });
         } else {
-          runningBalance += adjustment.amount; // amount is negative
+          runningBalance += adjustment.amount;
           allMovements.push({
             id: `adj-${adjustment.id}`,
             date: adjustment.date,
@@ -131,27 +131,29 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
     return allMovements;
   }, [tenant, receipts, adjustments]);
 
-  const handleSaveAdjustment = () => {
-    if (!setAdjustments) return;
+  const handleSaveAdjustment = async () => {
+    if (!onAddAdjustment) return;
     const amount = parseFloat(adjustmentForm.amount);
     if (isNaN(amount) || amount === 0) return;
     if (!adjustmentForm.reason.trim()) return;
 
-    const newAdjustment: TenantAdjustment = {
-      id: Date.now(),
-      tenant: tenant.name,
-      date: adjustmentForm.date,
-      amount,
-      reason: adjustmentForm.reason.trim(),
-    };
-
-    setAdjustments(prev => [...prev, newAdjustment]);
-    setAdjustmentForm({
-      date: new Date().toISOString().split('T')[0],
-      amount: '',
-      reason: '',
-    });
-    setShowAdjustmentModal(false);
+    setSavingAdjustment(true);
+    try {
+      await onAddAdjustment({
+        tenant: tenant.name,
+        date: adjustmentForm.date,
+        amount,
+        reason: adjustmentForm.reason.trim(),
+      });
+      setAdjustmentForm({
+        date: new Date().toISOString().split('T')[0],
+        amount: '',
+        reason: '',
+      });
+      setShowAdjustmentModal(false);
+    } finally {
+      setSavingAdjustment(false);
+    }
   };
 
   const finalBalance = movements.length > 0 ? movements[movements.length - 1].balance : 0;
@@ -312,7 +314,7 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
             <p className="text-gray-600">{tenant.name}</p>
           </div>
           <div className="flex items-center space-x-3">
-            {setAdjustments && (
+            {onAddAdjustment && (
               <button
                 onClick={() => setShowAdjustmentModal(true)}
                 className="flex items-center space-x-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
@@ -456,7 +458,7 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
           </div>
         )}
       </div>
-      
+
       {/* Adjustment Modal */}
       {showAdjustmentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -507,16 +509,17 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setShowAdjustmentModal(false)}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={savingAdjustment}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveAdjustment}
-                disabled={!adjustmentForm.reason.trim() || !adjustmentForm.amount || parseFloat(adjustmentForm.amount) === 0}
+                disabled={savingAdjustment || !adjustmentForm.reason.trim() || !adjustmentForm.amount || parseFloat(adjustmentForm.amount) === 0}
                 className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Guardar
+                {savingAdjustment ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </div>
