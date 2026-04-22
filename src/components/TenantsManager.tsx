@@ -104,12 +104,26 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
     }
   };
 
+  const getEffectiveStatus = (tenant: Tenant): Tenant['status'] => {
+    if (!tenant.propertyId) return 'pendiente';
+    return tenant.status;
+  };
+
   const getStatusColor = (status: Tenant['status']) => {
     switch (status) {
       case 'activo': return 'bg-green-100 text-green-800';
       case 'vencido': return 'bg-red-100 text-red-800';
       case 'pendiente': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status: Tenant['status']) => {
+    switch (status) {
+      case 'activo': return 'Activo';
+      case 'vencido': return 'Vencido';
+      case 'pendiente': return 'Sin propiedad';
+      default: return status;
     }
   };
 
@@ -161,13 +175,13 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inquilino</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Propiedad</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contrato</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inquilino</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Propiedad</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contrato</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -177,45 +191,44 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => handleViewAccount(tenant)}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <User className="h-5 w-5 text-blue-600" />
+                      <div className="flex-shrink-0 h-8 w-8">
+                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                          <User className="h-4 w-4 text-blue-600" />
                         </div>
                       </div>
-                      <div className="ml-4">
+                      <div className="ml-2">
                         <div className="text-sm font-medium text-gray-900">{tenant.name}</div>
-                        <div className="text-sm text-gray-500">Depósito: ${tenant.deposit.toLocaleString()}</div>
-                        <div className="text-sm text-gray-500">Garante: {tenant.guarantor.name}</div>
+                        <div className="text-xs text-gray-500">Dep: ${tenant.deposit.toLocaleString()}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="space-y-1">
-                      <div className="flex items-center text-sm text-gray-900">
-                        <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                        {tenant.email}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center text-xs text-gray-900">
+                        <Mail className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
+                        <span className="truncate max-w-[140px]">{tenant.email}</span>
                       </div>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                      <div className="flex items-center text-xs text-gray-500">
+                        <Phone className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
                         {tenant.phone}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{tenant.property}</div>
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{tenant.property || '—'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="space-y-1">
-                      <div className="flex items-center text-sm text-gray-900">
-                        <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                        Inicio: {tenant.contractStart}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center text-xs text-gray-900">
+                        <Calendar className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
+                        {tenant.contractStart}
                       </div>
-                      <div className="text-sm text-gray-500">Vence: {tenant.contractEnd}</div>
+                      <div className="text-xs text-gray-500">hasta {tenant.contractEnd}</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-3 whitespace-nowrap">
                     {(() => {
                       const debt = getTenantDebt(tenant.name);
                       return (
@@ -228,12 +241,17 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
                       );
                     })()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(tenant.status)}`}>
-                      {tenant.status.charAt(0).toUpperCase() + tenant.status.slice(1)}
-                    </span>
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    {(() => {
+                      const effStatus = getEffectiveStatus(tenant);
+                      return (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(effStatus)}`}>
+                          {getStatusLabel(effStatus)}
+                        </span>
+                      );
+                    })()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-3 py-3 whitespace-nowrap text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleEdit(tenant)}
