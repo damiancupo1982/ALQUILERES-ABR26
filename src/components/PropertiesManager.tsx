@@ -37,6 +37,9 @@ const toNumberSafe = (v: unknown): number => {
 
 const safeMoney = (v: unknown) => toNumberSafe(v).toLocaleString('es-AR', { maximumFractionDigits: 0 });
 
+// Sentinel value for unassigned properties
+const SIN_EDIFICIO = '__SIN_EDIFICIO__';
+
 const PropertiesManager: React.FC<PropertiesManagerProps> = ({ properties, setProperties }) => {
   const [showModal, setShowModal] = useState(false);
   const [showBuildingsModal, setShowBuildingsModal] = useState(false);
@@ -44,6 +47,8 @@ const PropertiesManager: React.FC<PropertiesManagerProps> = ({ properties, setPr
   const [filterStatus, setFilterStatus] = useState<'all' | 'disponible' | 'ocupado' | 'mantenimiento'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'building'>('grid');
   const [availableBuildings, setAvailableBuildings] = useState<string[]>([]);
+  // null = buildings overview; SIN_EDIFICIO = unassigned; any other string = specific building
+  const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -178,34 +183,103 @@ const PropertiesManager: React.FC<PropertiesManagerProps> = ({ properties, setPr
     setProperties(items);
   };
 
-  // Filtrar propiedades según el estado seleccionado (blindado)
+  // Resumen de edificios para la vista overview
+  const buildingsOverview = useMemo(() => {
+    const map: Record<string, Property[]> = {};
+    for (const property of (properties ?? [])) {
+      const key = safeText((property as any)?.building) || SIN_EDIFICIO;
+      if (!map[key]) map[key] = [];
+      map[key].push(property);
+    }
+    // Sort: named buildings first (alphabetically), then SIN_EDIFICIO
+    const entries = Object.entries(map).sort(([a], [b]) => {
+      if (a === SIN_EDIFICIO) return 1;
+      if (b === SIN_EDIFICIO) return -1;
+      return a.localeCompare(b, 'es');
+    });
+    return entries.map(([key, props]) => ({
+      key,
+      label: key === SIN_EDIFICIO ? 'Sin edificio' : key,
+      properties: props,
+      total: props.length,
+      ocupado: props.filter((p: any) => p?.status === 'ocupado').length,
+      disponible: props.filter((p: any) => p?.status === 'disponible').length,
+      mantenimiento: props.filter((p: any) => p?.status === 'mantenimiento').length,
+    }));
+  }, [properties]);
+
+  // Filtrar propiedades según el edificio seleccionado y el estado seleccionado (blindado)
   const filteredProperties = useMemo(() => {
     return (properties ?? []).filter((property: any) => {
-      return filterStatus === 'all' || property?.status === filterStatus;
+      const buildingKey = safeText(property?.building) || SIN_EDIFICIO;
+      const buildingMatch =
+        selectedBuilding === null
+          ? true
+          : buildingKey === selectedBuilding;
+      const statusMatch = filterStatus === 'all' || property?.status === filterStatus;
+      return buildingMatch && statusMatch;
     });
-  }, [properties, filterStatus]);
+  }, [properties, filterStatus, selectedBuilding]);
 
   // Agrupar propiedades por edificio (blindado)
   const propertiesByBuilding = useMemo(() => {
-    return (properties ?? []).reduce((acc, property: any) => {
+    return (filteredProperties ?? []).reduce((acc, property: any) => {
       const buildingKey = safeText(property?.building, 'Sin edificio');
       if (!acc[buildingKey]) acc[buildingKey] = [];
       acc[buildingKey].push(property);
       return acc;
     }, {} as Record<string, Property[]>);
-  }, [properties]);
+  }, [filteredProperties]);
 
   const getStatusCount = (status: Property['status']) => {
-    return (properties ?? []).filter((p: any) => p?.status === status).length;
+    const base = selectedBuilding === null
+      ? (properties ?? [])
+      : (properties ?? []).filter((p: any) => {
+          const key = safeText(p?.building) || SIN_EDIFICIO;
+          return key === selectedBuilding;
+        });
+    return base.filter((p: any) => p?.status === status).length;
   };
+
+  const handleBackToOverview = () => {
+    setSelectedBuilding(null);
+    setFilterStatus('all');
+  };
+
+  const selectedBuildingInfo = selectedBuilding !== null
+    ? buildingsOverview.find(b => b.key === selectedBuilding)
+    : null;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Propiedades</h2>
-          <p className="text-gray-600">Gestiona todas tus propiedades en alquiler</p>
+          {selectedBuilding === null ? (
+            <>
+              <h2 className="text-2xl font-bold text-gray-900">Propiedades</h2>
+              <p className="text-gray-600">Seleccioná un edificio para ver sus propiedades</p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={handleBackToOverview}
+                  className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 transition-colors text-sm font-medium"
+                >
+                  <span>←</span>
+                  <span>Edificios</span>
+                </button>
+                <span className="text-gray-400">/</span>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {selectedBuilding === SIN_EDIFICIO ? 'Sin edificio' : selectedBuilding}
+                </h2>
+              </div>
+              <p className="text-gray-600">
+                {filteredProperties.length} propiedad{filteredProperties.length !== 1 ? 'es' : ''}
+              </p>
+            </>
+          )}
         </div>
         <div className="flex items-center space-x-3">
           <button
@@ -242,79 +316,135 @@ const PropertiesManager: React.FC<PropertiesManagerProps> = ({ properties, setPr
         </div>
       </div>
 
-      {/* Filters and View Toggle */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Status Filters */}
-          <div className="flex items-center space-x-2">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setFilterStatus('all')}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                  filterStatus === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Todas ({properties.length})
-              </button>
-              <button
-                onClick={() => setFilterStatus('disponible')}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                  filterStatus === 'disponible'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Disponibles ({getStatusCount('disponible')})
-              </button>
-              <button
-                onClick={() => setFilterStatus('ocupado')}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                  filterStatus === 'ocupado' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Ocupadas ({getStatusCount('ocupado')})
-              </button>
-              <button
-                onClick={() => setFilterStatus('mantenimiento')}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                  filterStatus === 'mantenimiento'
-                    ? 'bg-yellow-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Mantenimiento ({getStatusCount('mantenimiento')})
-              </button>
+      {/* Buildings Overview */}
+      {selectedBuilding === null ? (
+        <>
+          {buildingsOverview.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+              <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay propiedades</h3>
+              <p className="text-gray-500">Agregá una propiedad para comenzar.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {buildingsOverview.map(({ key, label, total, ocupado, disponible, mantenimiento }) => (
+                <button
+                  key={key}
+                  onClick={() => setSelectedBuilding(key)}
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all duration-200 text-left group"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-lg ${key === SIN_EDIFICIO ? 'bg-gray-100' : 'bg-blue-50 group-hover:bg-blue-100'} transition-colors`}>
+                        <Building2 className={`h-6 w-6 ${key === SIN_EDIFICIO ? 'text-gray-500' : 'text-blue-600'}`} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
+                          {label}
+                        </h3>
+                        <p className="text-sm text-gray-500">{total} propiedad{total !== 1 ? 'es' : ''}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex space-x-3">
+                    {ocupado > 0 && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <UsersIcon className="h-3 w-3 mr-1" />
+                        {ocupado} ocupada{ocupado !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {disponible > 0 && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <Home className="h-3 w-3 mr-1" />
+                        {disponible} disponible{disponible !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {mantenimiento > 0 && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        {mantenimiento} mantenimiento
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Filters and View Toggle — only in building detail view */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              {/* Status Filters */}
+              <div className="flex items-center space-x-2">
+                <Filter className="h-5 w-5 text-gray-400" />
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setFilterStatus('all')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      filterStatus === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Todas ({selectedBuildingInfo?.total ?? filteredProperties.length})
+                  </button>
+                  <button
+                    onClick={() => setFilterStatus('disponible')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      filterStatus === 'disponible'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Disponibles ({getStatusCount('disponible')})
+                  </button>
+                  <button
+                    onClick={() => setFilterStatus('ocupado')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      filterStatus === 'ocupado' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Ocupadas ({getStatusCount('ocupado')})
+                  </button>
+                  <button
+                    onClick={() => setFilterStatus('mantenimiento')}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      filterStatus === 'mantenimiento'
+                        ? 'bg-yellow-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    Mantenimiento ({getStatusCount('mantenimiento')})
+                  </button>
+                </div>
+              </div>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Vista:</span>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <Home className="h-4 w-4 inline mr-1" />
+                  Tarjetas
+                </button>
+                <button
+                  onClick={() => setViewMode('building')}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    viewMode === 'building' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <Building2 className="h-4 w-4 inline mr-1" />
+                  Por Edificio
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">Vista:</span>
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              <Home className="h-4 w-4 inline mr-1" />
-              Tarjetas
-            </button>
-            <button
-              onClick={() => setViewMode('building')}
-              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === 'building' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              <Building2 className="h-4 w-4 inline mr-1" />
-              Por Edificio
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Properties Display */}
-      {viewMode === 'grid' ? (
+          {/* Properties Display */}
+          {viewMode === 'grid' ? (
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="properties" direction="horizontal">
             {(provided) => (
@@ -534,6 +664,8 @@ const PropertiesManager: React.FC<PropertiesManagerProps> = ({ properties, setPr
             {filterStatus === 'all' ? 'No hay propiedades registradas.' : `No hay propiedades con estado "${filterStatus}".`}
           </p>
         </div>
+      )}
+        </>
       )}
 
       {/* Modal */}
