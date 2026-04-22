@@ -212,34 +212,6 @@ export interface Database {
           updated_at?: string;
         };
       };
-      tenant_adjustments: {
-        Row: {
-          id: string;
-          tenant_id: string | null;
-          tenant_name: string;
-          date: string;
-          amount: number;
-          reason: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          tenant_id?: string | null;
-          tenant_name: string;
-          date?: string;
-          amount: number;
-          reason: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          tenant_id?: string | null;
-          tenant_name?: string;
-          date?: string;
-          amount?: number;
-          reason?: string;
-        };
-      };
       cash_movements: {
         Row: {
           id: string;

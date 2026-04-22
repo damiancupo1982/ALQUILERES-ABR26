@@ -6,7 +6,7 @@ interface TenantAccountStatementProps {
   tenant: Tenant;
   receipts: Receipt[];
   adjustments?: TenantAdjustment[];
-  addAdjustment?: (tenantName: string, data: { date: string; amount: number; reason: string }) => Promise<void>;
+  setAdjustments?: React.Dispatch<React.SetStateAction<TenantAdjustment[]>>;
   onClose: () => void;
 }
 
@@ -25,7 +25,7 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
   tenant,
   receipts,
   adjustments = [],
-  addAdjustment,
+  setAdjustments,
   onClose,
 }) => {
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
@@ -131,34 +131,27 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
     return allMovements;
   }, [tenant, receipts, adjustments]);
 
-  const [isSavingAdjustment, setIsSavingAdjustment] = useState(false);
-  const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
-
-  const handleSaveAdjustment = async () => {
-    if (!addAdjustment) return;
+  const handleSaveAdjustment = () => {
+    if (!setAdjustments) return;
     const amount = parseFloat(adjustmentForm.amount);
     if (isNaN(amount) || amount === 0) return;
     if (!adjustmentForm.reason.trim()) return;
 
-    setIsSavingAdjustment(true);
-    setAdjustmentError(null);
-    try {
-      await addAdjustment(tenant.name, {
-        date: adjustmentForm.date,
-        amount,
-        reason: adjustmentForm.reason.trim(),
-      });
-      setAdjustmentForm({
-        date: new Date().toISOString().split('T')[0],
-        amount: '',
-        reason: '',
-      });
-      setShowAdjustmentModal(false);
-    } catch {
-      setAdjustmentError('Error al guardar el ajuste. Intente de nuevo.');
-    } finally {
-      setIsSavingAdjustment(false);
-    }
+    const newAdjustment: TenantAdjustment = {
+      id: Date.now(),
+      tenant: tenant.name,
+      date: adjustmentForm.date,
+      amount,
+      reason: adjustmentForm.reason.trim(),
+    };
+
+    setAdjustments(prev => [...prev, newAdjustment]);
+    setAdjustmentForm({
+      date: new Date().toISOString().split('T')[0],
+      amount: '',
+      reason: '',
+    });
+    setShowAdjustmentModal(false);
   };
 
   const finalBalance = movements.length > 0 ? movements[movements.length - 1].balance : 0;
@@ -319,7 +312,7 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
             <p className="text-gray-600">{tenant.name}</p>
           </div>
           <div className="flex items-center space-x-3">
-            {addAdjustment && (
+            {setAdjustments && (
               <button
                 onClick={() => setShowAdjustmentModal(true)}
                 className="flex items-center space-x-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
@@ -512,21 +505,18 @@ const TenantAccountStatement: React.FC<TenantAccountStatementProps> = ({
               </div>
             </div>
             <div className="flex justify-end space-x-3 mt-6">
-              {adjustmentError && (
-                <p className="text-sm text-red-600 flex items-center mr-auto">{adjustmentError}</p>
-              )}
               <button
-                onClick={() => { setShowAdjustmentModal(false); setAdjustmentError(null); }}
+                onClick={() => setShowAdjustmentModal(false)}
                 className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveAdjustment}
-                disabled={isSavingAdjustment || !adjustmentForm.reason.trim() || !adjustmentForm.amount || parseFloat(adjustmentForm.amount) === 0}
+                disabled={!adjustmentForm.reason.trim() || !adjustmentForm.amount || parseFloat(adjustmentForm.amount) === 0}
                 className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSavingAdjustment ? 'Guardando...' : 'Guardar'}
+                Guardar
               </button>
             </div>
           </div>

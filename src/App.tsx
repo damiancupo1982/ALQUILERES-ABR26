@@ -91,8 +91,6 @@ export interface TenantAdjustment {
   date: string;
   amount: number;
   reason: string;
-  dbId?: string;
-  tenantDbId?: string | null;
 }
 
 // Funciones para localStorage
