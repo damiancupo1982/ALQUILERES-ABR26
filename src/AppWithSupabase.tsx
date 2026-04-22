@@ -1,3 +1,13 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect } from 'react';
 
-// ... rest of the file content ...
+const AppWithSupabase = () => {
+    // Your component logic here
+
+    return (
+        <div>
+            {/* Your JSX here */}
+        </div>
+    );
+};
+
+export default AppWithSupabase;
