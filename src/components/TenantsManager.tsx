@@ -10,10 +10,10 @@ interface TenantsManagerProps {
   receipts: Receipt[];
   updatePropertyTenant: (propertyId: number | null, tenantName: string | null, oldPropertyId?: number | null) => void;
   adjustments: TenantAdjustment[];
-  setAdjustments: React.Dispatch<React.SetStateAction<TenantAdjustment[]>>;
+  onAddAdjustment: (adjustment: Omit<TenantAdjustment, 'id'>) => Promise<void>;
 }
 
-const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, properties, receipts, updatePropertyTenant, adjustments, setAdjustments }) => {
+const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, properties, receipts, updatePropertyTenant, adjustments, onAddAdjustment }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [showAccountStatement, setShowAccountStatement] = useState(false);
@@ -34,10 +34,10 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const selectedProperty = properties.find(p => p.id.toString() === formData.propertyId);
     const oldPropertyId = editingTenant?.propertyId;
-    
+
     const newTenant: Tenant = {
       id: editingTenant ? editingTenant.id : Date.now(),
       name: formData.name,
@@ -59,19 +59,17 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
 
     if (editingTenant) {
       setTenants(tenants.map(t => t.id === editingTenant.id ? newTenant : t));
-      // Actualizar propiedades si cambió la asignación
       if (oldPropertyId !== newTenant.propertyId) {
         updatePropertyTenant(newTenant.propertyId, newTenant.name, oldPropertyId);
       }
     } else {
       setTenants([...tenants, newTenant]);
-      // Asignar propiedad al nuevo inquilino
       if (newTenant.propertyId) {
         updatePropertyTenant(newTenant.propertyId, newTenant.name);
       }
     }
 
-    setFormData({ 
+    setFormData({
       name: '', email: '', phone: '', propertyId: '', contractStart: '', contractEnd: '', deposit: '',
       guarantorName: '', guarantorEmail: '', guarantorPhone: ''
     });
@@ -100,7 +98,6 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
     if (confirm('¿Está seguro de eliminar este inquilino?')) {
       const tenant = tenants.find(t => t.id === id);
       if (tenant?.propertyId) {
-        // Liberar la propiedad
         updatePropertyTenant(null, null, tenant.propertyId);
       }
       setTenants(tenants.filter(t => t.id !== id));
@@ -116,7 +113,6 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
     }
   };
 
-  // Obtener propiedades disponibles (no ocupadas) más la propiedad actual del inquilino
   const getAvailableProperties = () => {
     return properties.filter(property =>
       property.status === 'disponible' ||
@@ -124,7 +120,6 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
     );
   };
 
-  // Calcular deuda real de cada inquilino basándose en los recibos y ajustes
   const getTenantDebt = (tenantName: string): number => {
     const tenantReceipts = receipts.filter(r =>
       r.tenant.toLowerCase() === tenantName.toLowerCase()
@@ -448,7 +443,7 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
           tenant={selectedTenant}
           receipts={receipts}
           adjustments={adjustments}
-          setAdjustments={setAdjustments}
+          onAddAdjustment={onAddAdjustment}
           onClose={() => {
             setShowAccountStatement(false);
             setSelectedTenant(null);
