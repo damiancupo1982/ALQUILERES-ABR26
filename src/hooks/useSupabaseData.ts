@@ -3,15 +3,13 @@ import { propertiesService } from '../services/properties.service';
 import { tenantsService } from '../services/tenants.service';
 import { receiptsService } from '../services/receipts.service';
 import { cashMovementsService } from '../services/cashMovements.service';
-import { tenantAdjustmentsService, TenantAdjustmentRow } from '../services/tenantAdjustments.service';
-import { Property, Tenant, Receipt, CashMovement, TenantAdjustment } from '../App';
+import { Property, Tenant, Receipt, CashMovement } from '../App';
 
 interface SupabaseData {
   properties: Property[];
   tenants: Tenant[];
   receipts: Receipt[];
   cashMovements: CashMovement[];
-  adjustments: TenantAdjustment[];
   loading: boolean;
   error: string | null;
 }
@@ -97,14 +95,6 @@ const convertCashMovementFromDB = (dbMovement: any): CashMovement => {
   };
 };
 
-const convertAdjustmentFromDB = (row: TenantAdjustmentRow): TenantAdjustment => ({
-  id: parseInt(row.id.replace(/-/g, '').substring(0, 13), 16),
-  tenant: row.tenant_name,
-  date: row.date,
-  amount: Number(row.amount),
-  reason: row.reason,
-});
-
 export const useSupabaseData = (): SupabaseData & {
   refetch: () => Promise<void>;
   syncFromLocalStorage: () => Promise<void>;
@@ -114,7 +104,6 @@ export const useSupabaseData = (): SupabaseData & {
     tenants: [],
     receipts: [],
     cashMovements: [],
-    adjustments: [],
     loading: true,
     error: null
   });
@@ -123,12 +112,11 @@ export const useSupabaseData = (): SupabaseData & {
     try {
       setData(prev => ({ ...prev, loading: true, error: null }));
 
-      const [propertiesData, tenantsData, receiptsData, cashMovementsData, adjustmentsData] = await Promise.all([
+      const [propertiesData, tenantsData, receiptsData, cashMovementsData] = await Promise.all([
         propertiesService.getAll(),
         tenantsService.getAll(),
         receiptsService.getAll(),
-        cashMovementsService.getAll(),
-        tenantAdjustmentsService.getAll()
+        cashMovementsService.getAll()
       ]);
 
       setData({
@@ -136,7 +124,6 @@ export const useSupabaseData = (): SupabaseData & {
         tenants: tenantsData.map(convertTenantFromDB),
         receipts: receiptsData.map(convertReceiptFromDB),
         cashMovements: cashMovementsData.map(convertCashMovementFromDB),
-        adjustments: adjustmentsData.map(convertAdjustmentFromDB),
         loading: false,
         error: null
       });
