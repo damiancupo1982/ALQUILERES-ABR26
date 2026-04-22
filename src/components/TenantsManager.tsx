@@ -13,7 +13,7 @@ interface TenantsManagerProps {
   onAddAdjustment: (adjustment: Omit<TenantAdjustment, 'id'>) => Promise<void>;
 }
 
-const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, properties, receipts, updatePropertyTenant, adjustments, onAddAdjustment }) => {
+const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, properties, receipts, updatePropertyTenant, adjustments = [], onAddAdjustment }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [showAccountStatement, setShowAccountStatement] = useState(false);

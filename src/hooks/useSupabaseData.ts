@@ -3,97 +3,99 @@ import { propertiesService } from '../services/properties.service';
 import { tenantsService } from '../services/tenants.service';
 import { receiptsService } from '../services/receipts.service';
 import { cashMovementsService } from '../services/cashMovements.service';
-import { Property, Tenant, Receipt, CashMovement } from '../App';
+import { tenantAdjustmentsService, TenantAdjustmentRow } from '../services/tenantAdjustments.service';
+import { Property, Tenant, Receipt, CashMovement, TenantAdjustment } from '../App';
 
 interface SupabaseData {
   properties: Property[];
   tenants: Tenant[];
   receipts: Receipt[];
   cashMovements: CashMovement[];
+  adjustments: TenantAdjustment[];
   loading: boolean;
   error: string | null;
 }
 
-const convertPropertyFromDB = (dbProperty: any): Property => {
-  return {
-    id: parseInt(dbProperty.id.replace(/-/g, '').substring(0, 13), 16),
-    name: dbProperty.name || '',
-    type: dbProperty.type || 'departamento',
-    building: dbProperty.building || '',
-    address: dbProperty.address || '',
-    rent: Number(dbProperty.rent) || 0,
-    rentCurrency: dbProperty.rent_currency || 'ARS',
-    expenses: Number(dbProperty.expenses) || 0,
-    expensesCurrency: dbProperty.expenses_currency || 'ARS',
-    nextUpdateDate: dbProperty.next_update_date || '',
-    tenant: dbProperty.tenant_name || null,
-    status: dbProperty.status || 'disponible',
-    contractStart: dbProperty.contract_start || '',
-    contractEnd: dbProperty.contract_end || '',
-    lastUpdated: dbProperty.last_updated || '',
-    notes: dbProperty.notes || ''
-  };
-};
+const convertPropertyFromDB = (dbProperty: any): Property => ({
+  id: parseInt(dbProperty.id.replace(/-/g, '').substring(0, 13), 16),
+  name: dbProperty.name || '',
+  type: dbProperty.type || 'departamento',
+  building: dbProperty.building || '',
+  address: dbProperty.address || '',
+  rent: Number(dbProperty.rent) || 0,
+  rentCurrency: dbProperty.rent_currency || 'ARS',
+  expenses: Number(dbProperty.expenses) || 0,
+  expensesCurrency: dbProperty.expenses_currency || 'ARS',
+  nextUpdateDate: dbProperty.next_update_date || '',
+  tenant: dbProperty.tenant_name || null,
+  status: dbProperty.status || 'disponible',
+  contractStart: dbProperty.contract_start || '',
+  contractEnd: dbProperty.contract_end || '',
+  lastUpdated: dbProperty.last_updated || '',
+  notes: dbProperty.notes || ''
+});
 
-const convertTenantFromDB = (dbTenant: any): Tenant => {
-  return {
-    id: parseInt(dbTenant.id.replace(/-/g, '').substring(0, 13), 16),
-    name: dbTenant.name || '',
-    email: dbTenant.email || '',
-    phone: dbTenant.phone || '',
-    propertyId: dbTenant.property_id ? parseInt(dbTenant.property_id.replace(/-/g, '').substring(0, 13), 16) : null,
-    property: dbTenant.properties?.name || '',
-    contractStart: dbTenant.contract_start || '',
-    contractEnd: dbTenant.contract_end || '',
-    deposit: Number(dbTenant.deposit) || 0,
-    guarantor: {
-      name: dbTenant.guarantor_name || '',
-      email: dbTenant.guarantor_email || '',
-      phone: dbTenant.guarantor_phone || ''
-    },
-    balance: Number(dbTenant.balance) || 0,
-    status: dbTenant.status || 'activo'
-  };
-};
+const convertTenantFromDB = (dbTenant: any): Tenant => ({
+  id: parseInt(dbTenant.id.replace(/-/g, '').substring(0, 13), 16),
+  name: dbTenant.name || '',
+  email: dbTenant.email || '',
+  phone: dbTenant.phone || '',
+  propertyId: dbTenant.property_id ? parseInt(dbTenant.property_id.replace(/-/g, '').substring(0, 13), 16) : null,
+  property: dbTenant.properties?.name || '',
+  contractStart: dbTenant.contract_start || '',
+  contractEnd: dbTenant.contract_end || '',
+  deposit: Number(dbTenant.deposit) || 0,
+  guarantor: {
+    name: dbTenant.guarantor_name || '',
+    email: dbTenant.guarantor_email || '',
+    phone: dbTenant.guarantor_phone || ''
+  },
+  balance: Number(dbTenant.balance) || 0,
+  status: dbTenant.status || 'activo'
+});
 
-const convertReceiptFromDB = (dbReceipt: any): Receipt => {
-  return {
-    id: parseInt(dbReceipt.id.replace(/-/g, '').substring(0, 13), 16),
-    receiptNumber: dbReceipt.receipt_number || '',
-    tenant: dbReceipt.tenant_name || '',
-    property: dbReceipt.property_name || '',
-    building: dbReceipt.building || '',
-    month: dbReceipt.month || '',
-    year: dbReceipt.year || new Date().getFullYear(),
-    rent: Number(dbReceipt.rent) || 0,
-    expenses: Number(dbReceipt.expenses) || 0,
-    otherCharges: dbReceipt.other_charges || [],
-    previousBalance: Number(dbReceipt.previous_balance) || 0,
-    total: Number(dbReceipt.total) || 0,
-    paidAmount: Number(dbReceipt.paid_amount) || 0,
-    remainingBalance: Number(dbReceipt.remaining_balance) || 0,
-    currency: dbReceipt.currency || 'ARS',
-    paymentMethod: dbReceipt.payment_method || 'efectivo',
-    status: dbReceipt.status || 'borrador',
-    dueDate: dbReceipt.due_date || '',
-    createdDate: dbReceipt.created_date || ''
-  };
-};
+const convertReceiptFromDB = (dbReceipt: any): Receipt => ({
+  id: parseInt(dbReceipt.id.replace(/-/g, '').substring(0, 13), 16),
+  receiptNumber: dbReceipt.receipt_number || '',
+  tenant: dbReceipt.tenant_name || '',
+  property: dbReceipt.property_name || '',
+  building: dbReceipt.building || '',
+  month: dbReceipt.month || '',
+  year: dbReceipt.year || new Date().getFullYear(),
+  rent: Number(dbReceipt.rent) || 0,
+  expenses: Number(dbReceipt.expenses) || 0,
+  otherCharges: dbReceipt.other_charges || [],
+  previousBalance: Number(dbReceipt.previous_balance) || 0,
+  total: Number(dbReceipt.total) || 0,
+  paidAmount: Number(dbReceipt.paid_amount) || 0,
+  remainingBalance: Number(dbReceipt.remaining_balance) || 0,
+  currency: dbReceipt.currency || 'ARS',
+  paymentMethod: dbReceipt.payment_method || 'efectivo',
+  status: dbReceipt.status || 'borrador',
+  dueDate: dbReceipt.due_date || '',
+  createdDate: dbReceipt.created_date || ''
+});
 
-const convertCashMovementFromDB = (dbMovement: any): CashMovement => {
-  return {
-    id: parseInt(dbMovement.id.replace(/-/g, '').substring(0, 13), 16),
-    type: dbMovement.type || 'income',
-    description: dbMovement.description || '',
-    amount: Number(dbMovement.amount) || 0,
-    currency: dbMovement.currency || 'ARS',
-    date: dbMovement.date || '',
-    tenant: dbMovement.tenant_name || undefined,
-    property: dbMovement.property_name || undefined,
-    paymentMethod: dbMovement.payment_method || undefined,
-    deliveryType: dbMovement.delivery_type || undefined
-  };
-};
+const convertCashMovementFromDB = (dbMovement: any): CashMovement => ({
+  id: parseInt(dbMovement.id.replace(/-/g, '').substring(0, 13), 16),
+  type: dbMovement.type || 'income',
+  description: dbMovement.description || '',
+  amount: Number(dbMovement.amount) || 0,
+  currency: dbMovement.currency || 'ARS',
+  date: dbMovement.date || '',
+  tenant: dbMovement.tenant_name || undefined,
+  property: dbMovement.property_name || undefined,
+  paymentMethod: dbMovement.payment_method || undefined,
+  deliveryType: dbMovement.delivery_type || undefined
+});
+
+const convertAdjustmentFromDB = (row: TenantAdjustmentRow): TenantAdjustment => ({
+  id: parseInt(row.id.replace(/-/g, '').substring(0, 13), 16),
+  tenant: row.tenant_name,
+  date: row.date,
+  amount: Number(row.amount),
+  reason: row.reason,
+});
 
 export const useSupabaseData = (): SupabaseData & {
   refetch: () => Promise<void>;
@@ -104,6 +106,7 @@ export const useSupabaseData = (): SupabaseData & {
     tenants: [],
     receipts: [],
     cashMovements: [],
+    adjustments: [],
     loading: true,
     error: null
   });
@@ -112,11 +115,12 @@ export const useSupabaseData = (): SupabaseData & {
     try {
       setData(prev => ({ ...prev, loading: true, error: null }));
 
-      const [propertiesData, tenantsData, receiptsData, cashMovementsData] = await Promise.all([
+      const [propertiesData, tenantsData, receiptsData, cashMovementsData, adjustmentsData] = await Promise.all([
         propertiesService.getAll(),
         tenantsService.getAll(),
         receiptsService.getAll(),
-        cashMovementsService.getAll()
+        cashMovementsService.getAll(),
+        tenantAdjustmentsService.getAll()
       ]);
 
       setData({
@@ -124,6 +128,7 @@ export const useSupabaseData = (): SupabaseData & {
         tenants: tenantsData.map(convertTenantFromDB),
         receipts: receiptsData.map(convertReceiptFromDB),
         cashMovements: cashMovementsData.map(convertCashMovementFromDB),
+        adjustments: adjustmentsData.map(convertAdjustmentFromDB),
         loading: false,
         error: null
       });

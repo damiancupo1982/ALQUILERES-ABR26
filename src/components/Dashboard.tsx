@@ -198,22 +198,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tenants, receipts, properties, se
           .filter((r: any) => r?.currency === 'USD')
           .reduce((sum: number, r: any) => sum + toNumberSafe(r?.remainingBalance), 0);
 
-        // Debug para verificar el cálculo
-        if (tenant?.name?.toLowerCase().includes('pazzi')) {
-          console.log('DEBUG PAZZI:', {
-            name: tenant?.name,
-            receiptsFound: allTenantReceipts.length,
-            debtARS,
-            debtUSD,
-            receipts: allTenantReceipts.map((r: any) => ({
-              receiptNumber: r?.receiptNumber,
-              currency: r?.currency,
-              total: r?.total,
-              paidAmount: r?.paidAmount,
-              remainingBalance: r?.remainingBalance,
-            }))
-          });
-        }
+
 
         return {
           id: tenant?.id ?? `${tenant?.name ?? 'tenant'}-${Math.random()}`,
