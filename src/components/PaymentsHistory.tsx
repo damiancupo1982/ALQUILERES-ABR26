@@ -52,7 +52,8 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
   const filteredPayments = payments.filter(payment => {
     const yearMatch = payment.year === selectedYear;
     const monthMatch = !selectedMonth || payment.month === selectedMonth;
-    const statusMatch = !selectedStatus || payment.status === selectedStatus;
+    // Solo mostrar pagos confirmados (status = 'pagado')
+    const statusMatch = payment.status === 'confirmado' && (!selectedStatus || payment.status === selectedStatus);
     const tenantMatch = !selectedTenant || payment.tenant === selectedTenant;
     const propertyMatch = !selectedProperty || payment.property === selectedProperty;
     const buildingMatch = !selectedBuilding || payment.building === selectedBuilding;
