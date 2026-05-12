@@ -24,20 +24,23 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Convertir receipts a formato de payments para compatibilidad
-  const payments = receipts.map(receipt => ({
-    id: receipt.id,
-    receiptNumber: receipt.receiptNumber,
-    tenant: receipt.tenant,
-    property: receipt.property,
-    building: receipt.building,
-    amount: receipt.paidAmount,
-    paymentDate: receipt.createdDate,
-    month: receipt.month,
-    year: receipt.year,
-    paymentMethod: receipt.paymentMethod,
-    status: receipt.status === 'pagado' ? 'confirmado' as const : 'pendiente_confirmacion' as const,
-    receipt: receipt // Mantener referencia al recibo completo
-  }));
+  // IMPORTANTE: Solo incluir recibos con paidAmount > 0 (realmente cobrados)
+  const payments = receipts
+    .filter((receipt) => receipt.paidAmount > 0)
+    .map(receipt => ({
+      id: receipt.id,
+      receiptNumber: receipt.receiptNumber,
+      tenant: receipt.tenant,
+      property: receipt.property,
+      building: receipt.building,
+      amount: receipt.paidAmount,
+      paymentDate: receipt.createdDate,
+      month: receipt.month,
+      year: receipt.year,
+      paymentMethod: receipt.paymentMethod,
+      status: receipt.status === 'pagado' ? 'confirmado' as const : 'pendiente_confirmacion' as const,
+      receipt: receipt // Mantener referencia al recibo completo
+    }));
 
   const months = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -52,8 +55,7 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
   const filteredPayments = payments.filter(payment => {
     const yearMatch = payment.year === selectedYear;
     const monthMatch = !selectedMonth || payment.month === selectedMonth;
-    // Solo mostrar pagos confirmados (status = 'pagado')
-    const statusMatch = payment.status === 'confirmado' && (!selectedStatus || payment.status === selectedStatus);
+    const statusMatch = !selectedStatus || payment.status === selectedStatus;
     const tenantMatch = !selectedTenant || payment.tenant === selectedTenant;
     const propertyMatch = !selectedProperty || payment.property === selectedProperty;
     const buildingMatch = !selectedBuilding || payment.building === selectedBuilding;
