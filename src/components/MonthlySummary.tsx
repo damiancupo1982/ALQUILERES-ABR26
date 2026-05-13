@@ -73,7 +73,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
       return {
         building: property.building,
-        address: property.address,
+        propertyName: property.name,
         tenant: tenantName,
         monthlyPayment: monthlyTotal,
         totalDebt: totalDebt,
@@ -178,7 +178,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                             : ''}
                         </td>
                         <td className={`border-2 ${rowBorder} px-4 py-2`}>
-                          {row.address}
+                          {row.propertyName}
                         </td>
                         <td className={`border-2 ${rowBorder} px-4 py-2 font-semibold`}>
                           {row.tenant}
