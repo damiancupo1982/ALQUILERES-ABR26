@@ -74,6 +74,7 @@ export interface Receipt {
 
 export interface CashMovement {
   id: number;
+  dbId?: string;
   type: 'income' | 'delivery';
   description: string;
   amount: number;

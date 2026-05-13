@@ -78,6 +78,7 @@ const convertReceiptFromDB = (dbReceipt: any): Receipt => ({
 
 const convertCashMovementFromDB = (dbMovement: any): CashMovement => ({
   id: parseInt(dbMovement.id.replace(/-/g, '').substring(0, 13), 16),
+  dbId: dbMovement.id,
   type: dbMovement.type || 'income',
   description: dbMovement.description || '',
   amount: Number(dbMovement.amount) || 0,

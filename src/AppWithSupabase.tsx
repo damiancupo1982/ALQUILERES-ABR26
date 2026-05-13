@@ -422,6 +422,18 @@ function AppWithSupabase() {
           payment_method: movement.paymentMethod || null,
           delivery_type: movement.deliveryType || null
         });
+      } else if (JSON.stringify(oldMovement) !== JSON.stringify(movement)) {
+        const dbId = movement.dbId || oldMovement.dbId;
+        if (dbId) {
+          await cashMovementsService.update(dbId, {
+            description: movement.description,
+            amount: movement.amount,
+            currency: movement.currency,
+            date: movement.date,
+            delivery_type: movement.deliveryType || null,
+            payment_method: movement.paymentMethod || null,
+          });
+        }
       }
     }
 

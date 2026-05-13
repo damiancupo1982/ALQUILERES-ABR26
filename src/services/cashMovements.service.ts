@@ -49,6 +49,18 @@ export const cashMovementsService = {
     return data as CashMovementRow;
   },
 
+  async update(id: string, movement: Partial<CashMovementInsert>) {
+    const { data, error } = await supabase
+      .from('cash_movements')
+      .update(movement)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as CashMovementRow;
+  },
+
   async delete(id: string) {
     const { error } = await supabase
       .from('cash_movements')
