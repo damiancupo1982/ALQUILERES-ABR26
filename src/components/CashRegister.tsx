@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wallet, DollarSign, TrendingUp, ArrowUpRight, ArrowDownLeft, Download, Calendar, Filter, CreditCard, Banknote, X } from 'lucide-react';
+import { Wallet, DollarSign, TrendingUp, ArrowUpRight, ArrowDownLeft, Download, Calendar, Filter, CreditCard, Banknote, X, Pencil, AlertTriangle } from 'lucide-react';
 import { CashMovement } from '../App';
 
 interface CashRegisterProps {
@@ -18,6 +18,12 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
   const [dateTo, setDateTo] = useState('');
   const [selectedMovementType, setSelectedMovementType] = useState<'all' | 'income' | 'delivery'>('all');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'all' | 'efectivo' | 'transferencia' | 'dolares'>('all');
+
+  // Edit egreso state
+  const [editingMovement, setEditingMovement] = useState<CashMovement | null>(null);
+  const [editForm, setEditForm] = useState({ description: '', amount: '', date: '', deliveryType: 'propietario' as 'propietario' | 'comision' | 'gasto', currency: 'ARS' as 'ARS' | 'USD' });
+  const [showConfirmEdit, setShowConfirmEdit] = useState(false);
+  const [pendingEdit, setPendingEdit] = useState<CashMovement | null>(null);
 
   // Calculate current balances - Caja Pesos only includes 'efectivo' payments
   const balanceARS = cashMovements.reduce((sum, movement) => {
@@ -179,6 +185,40 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
       case 'gasto': return 'Gasto';
       default: return 'N/A';
     }
+  };
+
+  const openEditModal = (movement: CashMovement) => {
+    setEditingMovement(movement);
+    setEditForm({
+      description: movement.description,
+      amount: String(movement.amount),
+      date: movement.date,
+      deliveryType: (movement.deliveryType as 'propietario' | 'comision' | 'gasto') || 'propietario',
+      currency: movement.currency as 'ARS' | 'USD',
+    });
+  };
+
+  const handleEditSubmit = () => {
+    if (!editingMovement) return;
+    const updated: CashMovement = {
+      ...editingMovement,
+      description: editForm.description.trim() || editingMovement.description,
+      amount: parseFloat(editForm.amount) || editingMovement.amount,
+      date: editForm.date || editingMovement.date,
+      deliveryType: editForm.deliveryType,
+      currency: editForm.currency,
+      paymentMethod: editForm.currency === 'USD' ? 'dolares' : editingMovement.paymentMethod,
+    };
+    setPendingEdit(updated);
+    setShowConfirmEdit(true);
+  };
+
+  const confirmEdit = () => {
+    if (!pendingEdit) return;
+    setCashMovements(prev => prev.map(m => m.id === pendingEdit.id ? pendingEdit : m));
+    setEditingMovement(null);
+    setPendingEdit(null);
+    setShowConfirmEdit(false);
   };
 
   const getPaymentMethodIcon = (method?: string) => {
@@ -444,7 +484,11 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredMovements.map((movement) => (
-                <tr key={movement.id} className="hover:bg-gray-50">
+                <tr
+                  key={movement.id}
+                  className={`hover:bg-gray-50 transition-colors ${movement.type === 'delivery' ? 'cursor-pointer' : ''}`}
+                  onClick={() => movement.type === 'delivery' && openEditModal(movement)}
+                >
                   <td className="px-2 py-2 whitespace-nowrap">
                     <div className="flex items-center">
                       <Calendar className="h-3 w-3 text-gray-400 mr-1" />
@@ -452,17 +496,18 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                     </div>
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap">
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-1">
                       {movement.type === 'income' ? (
-                        <ArrowDownLeft className="h-3 w-3 text-green-500 mr-1" />
+                        <ArrowDownLeft className="h-3 w-3 text-green-500" />
                       ) : (
-                        <ArrowUpRight className="h-3 w-3 text-red-500 mr-1" />
+                        <ArrowUpRight className="h-3 w-3 text-red-500" />
                       )}
-                      <span className={`text-xs font-medium ${
-                        movement.type === 'income' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {movement.type === 'income' ? 'Ingreso' : 'Entrega'}
+                      <span className={`text-xs font-medium ${movement.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                        {movement.type === 'income' ? 'Ingreso' : 'Egreso'}
                       </span>
+                      {movement.type === 'delivery' && (
+                        <Pencil className="h-3 w-3 text-gray-400 ml-1" title="Editar egreso" />
+                      )}
                     </div>
                   </td>
                   <td className="px-2 py-2">
@@ -490,9 +535,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                     )}
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap text-right">
-                    <span className={`text-xs font-semibold ${
-                      movement.type === 'income' ? 'text-green-600' : 'text-red-600'
-                    }`}>
+                    <span className={`text-xs font-semibold ${movement.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                       {movement.type === 'income' ? '+' : '-'}{movement.currency === 'USD' ? 'U$S' : '$'} {movement.amount.toLocaleString()}
                     </span>
                   </td>
@@ -502,6 +545,128 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
           </table>
         </div>
       </div>
+
+      {/* Edit Egreso Modal */}
+      {editingMovement && !showConfirmEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-lg font-semibold text-gray-900">Editar Egreso</h3>
+              <button onClick={() => setEditingMovement(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                <input
+                  type="text"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Monto</label>
+                <input
+                  type="number"
+                  value={editForm.amount}
+                  onChange={(e) => setEditForm(f => ({ ...f, amount: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
+                <select
+                  value={editForm.currency}
+                  onChange={(e) => setEditForm(f => ({ ...f, currency: e.target.value as 'ARS' | 'USD' }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="ARS">Pesos Argentinos</option>
+                  <option value="USD">Dólares</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                <select
+                  value={editForm.deliveryType}
+                  onChange={(e) => setEditForm(f => ({ ...f, deliveryType: e.target.value as any }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="propietario">Al Propietario</option>
+                  <option value="comision">Comisión</option>
+                  <option value="gasto">Gasto</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+                <input
+                  type="date"
+                  value={editForm.date}
+                  onChange={(e) => setEditForm(f => ({ ...f, date: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-5">
+              <button
+                onClick={() => setEditingMovement(null)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEditSubmit}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Guardar cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Edit Modal */}
+      {showConfirmEdit && pendingEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 border-l-4 border-amber-500">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-amber-100 p-2 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Confirmar cambios</h3>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Estás por modificar el egreso <strong>"{pendingEdit.description}"</strong> por{' '}
+              <strong>{pendingEdit.currency === 'USD' ? 'U$S' : '$'} {pendingEdit.amount.toLocaleString()}</strong>.
+              Esta acción afectará el saldo de caja.
+            </p>
+            <p className="text-sm font-medium text-amber-700">¿Estás seguro de guardar estos cambios?</p>
+
+            <div className="flex justify-end space-x-3 pt-5">
+              <button
+                onClick={() => { setShowConfirmEdit(false); setPendingEdit(null); }}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Volver a editar
+              </button>
+              <button
+                onClick={confirmEdit}
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+              >
+                Sí, guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delivery Modal */}
       {showDeliveryModal && (
