@@ -217,9 +217,17 @@ const TenantsManager: React.FC<TenantsManagerProps> = ({ tenants, setTenants, pr
                   <td className="px-2 py-2 whitespace-nowrap">
                     {(() => {
                       const debt = getTenantDebt(tenant.name);
-                      return (
-                        <div className={`text-xs font-semibold ${debt > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          ${debt.toLocaleString()}
+                      return debt < 0 ? (
+                        <div>
+                          <div className="text-xs font-semibold text-blue-600">${Math.abs(debt).toLocaleString()}</div>
+                          <div className="text-xs text-blue-500">A favor</div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className={`text-xs font-semibold ${debt > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            ${debt.toLocaleString()}
+                          </div>
+                          <div className="text-xs text-gray-500">{debt > 0 ? 'Debe' : 'Al día'}</div>
                         </div>
                       );
                     })()}

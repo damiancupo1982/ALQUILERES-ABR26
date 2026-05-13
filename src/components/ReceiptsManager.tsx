@@ -273,7 +273,7 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
 
     const tenant = tenants.find((t) => t.name === payingReceipt.tenant);
     if (tenant) {
-      const newBalance = Math.max(0, (tenant.balance || 0) - totalPaying);
+      const newBalance = (tenant.balance || 0) - totalPaying;
       updateTenantBalance(tenant.name, newBalance);
     }
 
@@ -384,6 +384,15 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
         <td><strong>SALDO PENDIENTE</strong></td>
         <td style="text-align:right;"><strong>${currencyFormatter(
           safeNumber(receipt.remainingBalance),
+          receipt.currency
+        )}</strong></td>
+      </tr>`
+        : receipt.remainingBalance < 0
+        ? `
+      <tr style="background-color:#dbeafe;">
+        <td><strong>SALDO A FAVOR</strong></td>
+        <td style="text-align:right;"><strong>${currencyFormatter(
+          Math.abs(safeNumber(receipt.remainingBalance)),
           receipt.currency
         )}</strong></td>
       </tr>`
@@ -704,10 +713,12 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
                       </span>
                       {safeNumber(receipt.remainingBalance) > 0 && (
                         <div className="text-xs text-red-600">
-                          {currencyFormatter(
-                            safeNumber(receipt.remainingBalance),
-                            receipt.currency
-                          )}
+                          {currencyFormatter(safeNumber(receipt.remainingBalance), receipt.currency)}
+                        </div>
+                      )}
+                      {safeNumber(receipt.remainingBalance) < 0 && (
+                        <div className="text-xs text-blue-600 font-semibold">
+                          A favor: {currencyFormatter(Math.abs(safeNumber(receipt.remainingBalance)), receipt.currency)}
                         </div>
                       )}
                     </div>
@@ -1366,6 +1377,19 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
                       <td className="border border-gray-300 px-4 py-2 text-right font-semibold text-red-600">
                         {currencyFormatter(
                           safeNumber(selectedReceipt.remainingBalance),
+                          selectedReceipt.currency
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  {safeNumber(selectedReceipt.remainingBalance) < 0 && (
+                    <tr className="bg-blue-50">
+                      <td className="border border-gray-300 px-4 py-2 font-semibold text-blue-700">
+                        SALDO A FAVOR
+                      </td>
+                      <td className="border border-gray-300 px-4 py-2 text-right font-semibold text-blue-700">
+                        {currencyFormatter(
+                          Math.abs(safeNumber(selectedReceipt.remainingBalance)),
                           selectedReceipt.currency
                         )}
                       </td>
