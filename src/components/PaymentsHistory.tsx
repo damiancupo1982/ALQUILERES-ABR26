@@ -89,6 +89,13 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
     .filter(p => p.receipt?.currency === 'USD')
     .reduce((sum, payment) => sum + payment.amount, 0);
 
+  const expectedARS = properties
+    .filter(p => p.status === 'ocupado' && p.rentCurrency === 'ARS')
+    .reduce((sum, p) => sum + (p.rent || 0) + (p.expensesCurrency === 'ARS' ? (p.expenses || 0) : 0), 0);
+  const expectedUSD = properties
+    .filter(p => p.status === 'ocupado' && p.rentCurrency === 'USD')
+    .reduce((sum, p) => sum + (p.rent || 0) + (p.expensesCurrency === 'USD' ? (p.expenses || 0) : 0), 0);
+
   const monthlyStats = months.map(month => {
     const monthPayments = filteredPayments.filter(p => p.month === month);
     const monthARS = monthPayments
@@ -524,25 +531,51 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
 
       {/* Monthly Chart */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Ingresos Mensuales {selectedYear}</h3>
-        <div className="grid grid-cols-12 gap-2">
-          {monthlyStats.map((stat, index) => {
-            const maxTotal = Math.max(...monthlyStats.map(s => s.totalARS));
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-semibold text-gray-900">Ingresos Mensuales {selectedYear}</h3>
+          <div className="flex items-center gap-4 text-xs text-gray-500">
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-blue-500"></span>
+              Cobrado
+            </span>
+            {expectedARS > 0 && (
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-1 bg-gray-400 rounded"></span>
+                Esperado ARS: ${(expectedARS / 1000).toFixed(0)}k
+              </span>
+            )}
+            {expectedUSD > 0 && (
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-1 bg-amber-400 rounded"></span>
+                Esperado USD: U$S {(expectedUSD / 1000).toFixed(1)}k
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="grid grid-cols-12 gap-2 mt-4">
+          {monthlyStats.map((stat) => {
+            const maxTotal = Math.max(...monthlyStats.map(s => s.totalARS), expectedARS, 1);
+            const barHeight = Math.max((stat.totalARS / maxTotal) * 100, 4);
+            const expectedHeight = expectedARS > 0 ? (expectedARS / maxTotal) * 100 : 0;
             return (
               <div key={stat.month} className="text-center">
-                <div className="mb-2">
+                <div className="relative flex flex-col justify-end" style={{ height: '110px' }}>
+                  {expectedARS > 0 && (
+                    <div
+                      className="absolute left-0 right-0 border-t-2 border-dashed border-gray-400"
+                      style={{ bottom: `${expectedHeight}px` }}
+                      title={`Esperado: $${expectedARS.toLocaleString()}`}
+                    />
+                  )}
                   <div
-                    className="bg-blue-500 rounded-t"
-                    style={{
-                      height: `${Math.max((stat.totalARS / (maxTotal || 1)) * 100, 5)}px`,
-                      minHeight: '20px'
-                    }}
-                  ></div>
+                    className="bg-blue-500 rounded-t w-full transition-all"
+                    style={{ height: `${barHeight}px` }}
+                  />
                 </div>
-                <p className="text-xs text-gray-600 mb-1">{stat.month.slice(0, 3)}</p>
+                <p className="text-xs text-gray-500 mt-1">{stat.month.slice(0, 3)}</p>
                 <p className="text-xs font-semibold text-gray-900">${(stat.totalARS / 1000).toFixed(0)}k</p>
                 {stat.totalUSD > 0 && (
-                  <p className="text-xs text-gray-500">U$S {(stat.totalUSD / 1000).toFixed(1)}k</p>
+                  <p className="text-xs text-amber-600 font-medium">U$S {(stat.totalUSD / 1000).toFixed(1)}k</p>
                 )}
               </div>
             );
