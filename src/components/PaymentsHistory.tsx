@@ -38,7 +38,7 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
   // Convertir receipts a formato de payments para compatibilidad
   // IMPORTANTE: Solo incluir recibos con paidAmount > 0 (realmente cobrados)
   const payments = receipts
-    .filter((receipt) => receipt.paidAmount > 0)
+    .filter((receipt) => receipt.paidAmount > 0 && receipt.status === 'pagado')
     .map(receipt => ({
       id: receipt.id,
       receiptNumber: receipt.receiptNumber,
