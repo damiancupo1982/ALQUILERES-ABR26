@@ -109,7 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tenants, receipts, properties, se
       return (
         receiptDate.getMonth() === currentMonth &&
         receiptDate.getFullYear() === currentYear &&
-        receipt?.status === 'pagado'
+        toNumberSafe(receipt?.paidAmount) > 0
       );
     });
 
