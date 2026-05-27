@@ -99,19 +99,15 @@ const Dashboard: React.FC<DashboardProps> = ({ tenants, receipts, properties, se
   // Ingresos del mes actual separados por moneda
   const monthlyIncome = useMemo(() => {
     const now = new Date();
-    const currentMonth = now.getMonth();
+    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const currentMonthName = monthNames[now.getMonth()];
     const currentYear = now.getFullYear();
 
-    const paidReceipts = (receipts ?? []).filter((receipt: any) => {
-      const receiptDate = safeDate(receipt?.createdDate);
-      if (!receiptDate) return false;
-
-      return (
-        receiptDate.getMonth() === currentMonth &&
-        receiptDate.getFullYear() === currentYear &&
-        toNumberSafe(receipt?.paidAmount) > 0
-      );
-    });
+    const paidReceipts = (receipts ?? []).filter((receipt: any) =>
+      receipt?.month === currentMonthName &&
+      receipt?.year === currentYear &&
+      toNumberSafe(receipt?.paidAmount) > 0
+    );
 
     const ars = paidReceipts
       .filter((r: any) => r?.currency === 'ARS')
