@@ -1,6 +1,6 @@
 import { DataManagement } from './DataManagement';
 import React, { useMemo, useState } from 'react';
-import { Building2, Users, DollarSign, AlertTriangle, TrendingUp, Calendar, X } from 'lucide-react';
+import { Building2, Users, DollarSign, AlertTriangle, TrendingUp, Calendar, X, DoorOpen } from 'lucide-react';
 import { Tenant, Receipt, Property } from '../App';
 import TenantAccountStatement from './TenantAccountStatement';
 
@@ -212,6 +212,11 @@ const Dashboard: React.FC<DashboardProps> = ({ tenants, receipts, properties, se
       .sort((a, b) => (b.debtARS + b.debtUSD * 1000) - (a.debtARS + a.debtUSD * 1000));
   }, [tenants, receipts]);
 
+  const vacantProperties = useMemo(
+    () => (properties ?? []).filter((p: any) => p.status === 'disponible' || p.status === 'mantenimiento'),
+    [properties]
+  );
+
   return (
     <div className="space-y-8">
       {/* Statistics Cards */}
@@ -240,6 +245,57 @@ const Dashboard: React.FC<DashboardProps> = ({ tenants, receipts, properties, se
           );
         })}
       </div>
+
+      {/* Vacant Properties */}
+      {vacantProperties.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-orange-200">
+          <div className="p-5 border-b border-orange-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="bg-orange-100 p-2 rounded-lg">
+                <DoorOpen className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Propiedades Desocupadas</h3>
+                <p className="text-xs text-gray-500">{vacantProperties.length} unidad{vacantProperties.length !== 1 ? 'es' : ''} sin inquilino</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveTab('properties')}
+              className="text-xs text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2"
+            >
+              Ver todas
+            </button>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {vacantProperties.map((prop: any) => (
+              <div key={prop.id} className="flex items-center justify-between px-5 py-3 hover:bg-orange-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${prop.status === 'mantenimiento' ? 'bg-yellow-400' : 'bg-orange-400'}`} />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{prop.name}</p>
+                    <p className="text-xs text-gray-500">{prop.building}{prop.address ? ` — ${prop.address}` : ''}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-right">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">
+                      {prop.rentCurrency === 'USD' ? 'U$S ' : '$'}{formatMoney(prop.rent)}
+                    </p>
+                    <p className="text-xs text-gray-400 capitalize">{prop.type}</p>
+                  </div>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    prop.status === 'mantenimiento'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-orange-100 text-orange-800'
+                  }`}>
+                    {prop.status === 'mantenimiento' ? 'Mantenimiento' : 'Disponible'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Recent Payments */}
