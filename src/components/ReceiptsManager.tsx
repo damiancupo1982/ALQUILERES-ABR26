@@ -222,11 +222,18 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
       paymentMethod = 'dolares';
     }
 
+    // Si el pago es exclusivamente en dólares, el recibo debe ser USD
+    const receiptCurrency: 'ARS' | 'USD' =
+      dolaresAmount > 0 && efectivoAmount === 0 && transferenciaAmount === 0
+        ? 'USD'
+        : payingReceipt.currency;
+
     const updatedReceipt: Receipt = {
       ...payingReceipt,
       paidAmount: newPaidAmount,
       remainingBalance: newRemainingBalance,
       paymentMethod,
+      currency: receiptCurrency,
       status: newRemainingBalance > 0 ? 'pendiente' : 'pagado',
     };
 
