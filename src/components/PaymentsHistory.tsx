@@ -65,13 +65,9 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
   const uniqueBuildings = [...new Set(payments.map(p => p.building))].sort();
 
   const filteredPayments = payments.filter(payment => {
-    // Filtrar por fecha real de cobro (createdDate), no por período del recibo
-    const payDate = payment.paymentDate ? new Date(payment.paymentDate) : null;
-    const payYear = payDate ? payDate.getFullYear() : null;
-    const payMonthName = payDate ? months[payDate.getMonth()] : null;
-
-    const yearMatch = payYear === selectedYear;
-    const monthMatch = !selectedMonth || payMonthName === selectedMonth;
+    // Filtrar por período del recibo (month + year), no por fecha de creación
+    const yearMatch = payment.year === selectedYear;
+    const monthMatch = !selectedMonth || payment.month === selectedMonth;
     const statusMatch = !selectedStatus || payment.status === selectedStatus;
     const tenantMatch = !selectedTenant || payment.tenant === selectedTenant;
     const propertyMatch = selectedProperties.length === 0 || selectedProperties.includes(payment.property);
@@ -94,12 +90,9 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
     .filter(p => p.receipt?.currency === 'USD')
     .reduce((sum, payment) => sum + payment.amount, 0);
 
-  const monthlyStats = months.map((month, monthIdx) => {
-    // Agrupar por fecha real de cobro dentro del año seleccionado
-    const monthPayments = payments.filter(p => {
-      const d = p.paymentDate ? new Date(p.paymentDate) : null;
-      return d && d.getFullYear() === selectedYear && d.getMonth() === monthIdx;
-    });
+  const monthlyStats = months.map((month) => {
+    // Agrupar por período del recibo (month + year)
+    const monthPayments = payments.filter(p => p.year === selectedYear && p.month === month);
     const monthARS = monthPayments
       .filter(p => p.receipt?.currency === 'ARS')
       .reduce((sum, p) => sum + p.amount, 0);
