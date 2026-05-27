@@ -89,13 +89,6 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
     .filter(p => p.receipt?.currency === 'USD')
     .reduce((sum, payment) => sum + payment.amount, 0);
 
-  const expectedARS = properties
-    .filter(p => p.status === 'ocupado' && p.rentCurrency === 'ARS')
-    .reduce((sum, p) => sum + (p.rent || 0) + (p.expensesCurrency === 'ARS' ? (p.expenses || 0) : 0), 0);
-  const expectedUSD = properties
-    .filter(p => p.status === 'ocupado' && p.rentCurrency === 'USD')
-    .reduce((sum, p) => sum + (p.rent || 0) + (p.expensesCurrency === 'USD' ? (p.expenses || 0) : 0), 0);
-
   const monthlyStats = months.map(month => {
     const monthPayments = filteredPayments.filter(p => p.month === month);
     const monthARS = monthPayments
@@ -104,11 +97,30 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
     const monthUSD = monthPayments
       .filter(p => p.receipt?.currency === 'USD')
       .reduce((sum, p) => sum + p.amount, 0);
+
+    // Monto esperado: suma de rent+expenses de recibos emitidos ese mes/año
+    // (recibo emitido = propiedad ocupada ese mes), deduplicando por propiedad
+    const monthReceipts = receipts.filter(r => r.month === month && r.year === selectedYear && r.status !== 'borrador');
+    const seenProperties = new Set<string>();
+    let expectedMonthARS = 0;
+    let expectedMonthUSD = 0;
+    for (const r of monthReceipts) {
+      if (seenProperties.has(r.property)) continue;
+      seenProperties.add(r.property);
+      if (r.currency === 'ARS') {
+        expectedMonthARS += (r.rent || 0) + (r.expenses || 0);
+      } else if (r.currency === 'USD') {
+        expectedMonthUSD += (r.rent || 0) + (r.expenses || 0);
+      }
+    }
+
     return {
       month,
       count: monthPayments.length,
       totalARS: monthARS,
       totalUSD: monthUSD,
+      expectedARS: expectedMonthARS,
+      expectedUSD: expectedMonthUSD,
     };
   });
 
@@ -538,37 +550,32 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
               <span className="inline-block w-3 h-3 rounded-sm bg-blue-500"></span>
               Cobrado
             </span>
-            {expectedARS > 0 && (
-              <span className="flex items-center gap-1">
-                <span className="inline-block w-3 h-1 bg-gray-400 rounded"></span>
-                Esperado ARS: ${(expectedARS / 1000).toFixed(0)}k
-              </span>
-            )}
-            {expectedUSD > 0 && (
-              <span className="flex items-center gap-1">
-                <span className="inline-block w-3 h-1 bg-amber-400 rounded"></span>
-                Esperado USD: U$S {(expectedUSD / 1000).toFixed(1)}k
-              </span>
-            )}
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-sm bg-gray-200 border border-dashed border-gray-400"></span>
+              Esperado (por mes)
+            </span>
           </div>
         </div>
         <div className="grid grid-cols-12 gap-2 mt-4">
           {monthlyStats.map((stat) => {
-            const maxTotal = Math.max(...monthlyStats.map(s => s.totalARS), expectedARS, 1);
-            const barHeight = Math.max((stat.totalARS / maxTotal) * 100, 4);
+            const maxTotal = Math.max(...monthlyStats.map(s => Math.max(s.totalARS, s.expectedARS)), 1);
+            const barHeight = Math.max((stat.totalARS / maxTotal) * 90, 4);
             return (
               <div key={stat.month} className="text-center">
-                {expectedARS > 0 && (
-                  <p className="text-xs text-gray-400 leading-tight mb-0.5" style={{ fontSize: '9px' }}>
-                    ${(expectedARS / 1000).toFixed(0)}k
+                {stat.expectedARS > 0 && (
+                  <p className="text-gray-400 leading-tight" style={{ fontSize: '9px' }}>
+                    ${(stat.expectedARS / 1000).toFixed(0)}k
                   </p>
                 )}
-                {expectedUSD > 0 && (
-                  <p className="text-xs text-amber-500 leading-tight mb-0.5" style={{ fontSize: '9px' }}>
-                    U$S {(expectedUSD / 1000).toFixed(1)}k
+                {stat.expectedUSD > 0 && (
+                  <p className="text-amber-500 leading-tight" style={{ fontSize: '9px' }}>
+                    U$S {(stat.expectedUSD / 1000).toFixed(1)}k
                   </p>
                 )}
-                <div className="relative flex flex-col justify-end" style={{ height: '90px' }}>
+                {stat.expectedARS === 0 && stat.expectedUSD === 0 && (
+                  <p className="text-gray-300 leading-tight" style={{ fontSize: '9px' }}>—</p>
+                )}
+                <div className="relative flex flex-col justify-end mt-1" style={{ height: '90px' }}>
                   <div
                     className="bg-blue-500 rounded-t w-full transition-all"
                     style={{ height: `${barHeight}px` }}
