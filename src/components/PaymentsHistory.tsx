@@ -556,17 +556,19 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
           {monthlyStats.map((stat) => {
             const maxTotal = Math.max(...monthlyStats.map(s => s.totalARS), expectedARS, 1);
             const barHeight = Math.max((stat.totalARS / maxTotal) * 100, 4);
-            const expectedHeight = expectedARS > 0 ? (expectedARS / maxTotal) * 100 : 0;
             return (
               <div key={stat.month} className="text-center">
-                <div className="relative flex flex-col justify-end" style={{ height: '110px' }}>
-                  {expectedARS > 0 && (
-                    <div
-                      className="absolute left-0 right-0 border-t-2 border-dashed border-gray-400"
-                      style={{ bottom: `${expectedHeight}px` }}
-                      title={`Esperado: $${expectedARS.toLocaleString()}`}
-                    />
-                  )}
+                {expectedARS > 0 && (
+                  <p className="text-xs text-gray-400 leading-tight mb-0.5" style={{ fontSize: '9px' }}>
+                    ${(expectedARS / 1000).toFixed(0)}k
+                  </p>
+                )}
+                {expectedUSD > 0 && (
+                  <p className="text-xs text-amber-500 leading-tight mb-0.5" style={{ fontSize: '9px' }}>
+                    U$S {(expectedUSD / 1000).toFixed(1)}k
+                  </p>
+                )}
+                <div className="relative flex flex-col justify-end" style={{ height: '90px' }}>
                   <div
                     className="bg-blue-500 rounded-t w-full transition-all"
                     style={{ height: `${barHeight}px` }}
