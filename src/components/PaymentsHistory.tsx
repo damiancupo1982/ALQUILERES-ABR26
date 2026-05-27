@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Calendar, DollarSign, Filter, Download, TrendingUp, Search, Eye, Printer, X, FileText, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Calendar, DollarSign, Filter, Download, TrendingUp, Search, Eye, Printer, X, FileText, ChevronUp, ChevronDown, ChevronsUpDown, Check } from 'lucide-react';
 import { Receipt, Property, Tenant } from '../App';
 import MonthlySummary from './MonthlySummary';
 
@@ -14,7 +14,9 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedTenant, setSelectedTenant] = useState('');
-  const [selectedProperty, setSelectedProperty] = useState('');
+  const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
+  const [propertyDropdownOpen, setPropertyDropdownOpen] = useState(false);
+  const propertyDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedBuilding, setSelectedBuilding] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showReceiptModal, setShowReceiptModal] = useState(false);
@@ -22,6 +24,16 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
   const [showMonthlySummary, setShowMonthlySummary] = useState(false);
   const [sortField, setSortField] = useState<'paymentDate' | 'receiptNumber' | 'tenant' | 'property' | 'building' | 'amount' | 'paymentMethod' | 'status' | 'month'>('paymentDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (propertyDropdownRef.current && !propertyDropdownRef.current.contains(e.target as Node)) {
+        setPropertyDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Convertir receipts a formato de payments para compatibilidad
   // IMPORTANTE: Solo incluir recibos con paidAmount > 0 (realmente cobrados)
@@ -57,7 +69,7 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
     const monthMatch = !selectedMonth || payment.month === selectedMonth;
     const statusMatch = !selectedStatus || payment.status === selectedStatus;
     const tenantMatch = !selectedTenant || payment.tenant === selectedTenant;
-    const propertyMatch = !selectedProperty || payment.property === selectedProperty;
+    const propertyMatch = selectedProperties.length === 0 || selectedProperties.includes(payment.property);
     const buildingMatch = !selectedBuilding || payment.building === selectedBuilding;
 
     const searchMatch = !searchTerm ||
@@ -97,7 +109,7 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
     setSelectedMonth('');
     setSelectedStatus('');
     setSelectedTenant('');
-    setSelectedProperty('');
+    setSelectedProperties([]);
     setSelectedBuilding('');
     setSearchTerm('');
   };
@@ -394,18 +406,56 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
             </select>
           </div>
 
-          <div>
+          <div ref={propertyDropdownRef} className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">Propiedad</label>
-            <select
-              value={selectedProperty}
-              onChange={(e) => setSelectedProperty(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            <button
+              type="button"
+              onClick={() => setPropertyDropdownOpen(o => !o)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between"
             >
-              <option value="">Todas las propiedades</option>
-              {uniqueProperties.map((property) => (
-                <option key={property} value={property}>{property}</option>
-              ))}
-            </select>
+              <span className="text-sm truncate text-gray-700">
+                {selectedProperties.length === 0
+                  ? 'Todas las propiedades'
+                  : selectedProperties.length === 1
+                  ? selectedProperties[0]
+                  : `${selectedProperties.length} propiedades`}
+              </span>
+              <ChevronDown className={`h-4 w-4 text-gray-400 flex-shrink-0 ml-1 transition-transform ${propertyDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {propertyDropdownOpen && (
+              <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                <div
+                  className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                  onClick={() => setSelectedProperties([])}
+                >
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 flex-shrink-0 ${selectedProperties.length === 0 ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                    {selectedProperties.length === 0 && <Check className="h-3 w-3 text-white" />}
+                  </div>
+                  <span className="text-sm text-gray-700">Todas las propiedades</span>
+                </div>
+                {uniqueProperties.map((property) => {
+                  const checked = selectedProperties.includes(property);
+                  return (
+                    <div
+                      key={property}
+                      className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => {
+                        setSelectedProperties(prev =>
+                          prev.includes(property)
+                            ? prev.filter(p => p !== property)
+                            : [...prev, property]
+                        );
+                      }}
+                    >
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 flex-shrink-0 ${checked ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                        {checked && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <span className="text-sm text-gray-700">{property}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div>
