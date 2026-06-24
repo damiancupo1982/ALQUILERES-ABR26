@@ -426,24 +426,84 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
             </div>
           </div>
           
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${filteredMovements.filter(m => m.type === 'income').reduce((sum, m) => sum + m.amount, 0).toLocaleString()}
+          {/* Tarjetas resumen del filtro */}
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* Efectivo recibido */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Banknote className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                <p className="text-xs font-medium text-emerald-700 uppercase tracking-wide">Efectivo recibido</p>
+              </div>
+              <p className="text-2xl font-bold text-emerald-800">
+                ${filteredMovements
+                  .filter(m => m.type === 'income' && m.paymentMethod === 'efectivo')
+                  .reduce((sum, m) => sum + m.amount, 0)
+                  .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+              </p>
+            </div>
+
+            {/* Transferencias recibidas */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <CreditCard className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">Transferencias</p>
+              </div>
+              <p className="text-2xl font-bold text-blue-800">
+                ${filteredMovements
+                  .filter(m => m.type === 'income' && m.paymentMethod === 'transferencia')
+                  .reduce((sum, m) => sum + m.amount, 0)
+                  .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+              </p>
+            </div>
+
+            {/* Dólares recibidos */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                <p className="text-xs font-medium text-yellow-700 uppercase tracking-wide">Dólares recibidos</p>
+              </div>
+              <p className="text-2xl font-bold text-yellow-800">
+                U$S {filteredMovements
+                  .filter(m => m.type === 'income' && m.currency === 'USD')
+                  .reduce((sum, m) => sum + m.amount, 0)
+                  .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+              </p>
+            </div>
+
+            {/* Gastos (delivery tipo gasto) */}
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <ArrowUpRight className="h-4 w-4 text-red-500 flex-shrink-0" />
+                <p className="text-xs font-medium text-red-700 uppercase tracking-wide">Gastos realizados</p>
+              </div>
+              <p className="text-2xl font-bold text-red-800">
+                ${filteredMovements
+                  .filter(m => m.type === 'delivery' && m.deliveryType === 'gasto')
+                  .reduce((sum, m) => sum + m.amount, 0)
+                  .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+              </p>
+            </div>
+
+            {/* Entregas al propietario y comisiones */}
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <ArrowUpRight className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                <p className="text-xs font-medium text-orange-700 uppercase tracking-wide">Entregas realizadas</p>
+              </div>
+              <p className="text-2xl font-bold text-orange-800">
+                ${filteredMovements
+                  .filter(m => m.type === 'delivery' && m.deliveryType !== 'gasto' && m.currency !== 'USD')
+                  .reduce((sum, m) => sum + m.amount, 0)
+                  .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+              </p>
+              {filteredMovements.filter(m => m.type === 'delivery' && m.currency === 'USD').reduce((sum, m) => sum + m.amount, 0) > 0 && (
+                <p className="text-sm font-semibold text-orange-700 mt-0.5">
+                  + U$S {filteredMovements
+                    .filter(m => m.type === 'delivery' && m.currency === 'USD')
+                    .reduce((sum, m) => sum + m.amount, 0)
+                    .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
                 </p>
-                <p className="text-sm text-gray-500">Total ingresos filtrados</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${filteredMovements.filter(m => m.type === 'delivery').reduce((sum, m) => sum + m.amount, 0).toLocaleString()}
-                </p>
-                <p className="text-sm text-gray-500">Total entregas filtradas</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{filteredMovements.length}</p>
-                <p className="text-sm text-gray-500">Movimientos encontrados</p>
-              </div>
+              )}
             </div>
           </div>
         </div>
