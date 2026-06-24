@@ -432,22 +432,32 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
           {/* Tarjetas resumen del filtro */}
           <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {/* Total recibido ARS */}
-            <div
-              className="bg-gray-800 border border-gray-700 rounded-xl p-4 cursor-pointer hover:bg-gray-700 hover:shadow-md transition-all col-span-2 md:col-span-3 lg:col-span-1"
-              onClick={() => setSelectedCard('total')}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <TrendingUp className="h-4 w-4 text-gray-300 flex-shrink-0" />
-                <p className="text-xs font-medium text-gray-300 uppercase tracking-wide">Total recibido</p>
-              </div>
-              <p className="text-2xl font-bold text-white">
-                ${filteredMovements
-                  .filter(m => m.type === 'income' && m.currency === 'ARS')
-                  .reduce((sum, m) => sum + m.amount, 0)
-                  .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">Efectivo + transferencias</p>
-            </div>
+            {(() => {
+              const sinMetodo = filteredMovements.filter(m => m.type === 'income' && m.currency === 'ARS' && !m.paymentMethod);
+              const sinMetodoTotal = sinMetodo.reduce((sum, m) => sum + m.amount, 0);
+              const totalARS = filteredMovements.filter(m => m.type === 'income' && m.currency === 'ARS').reduce((sum, m) => sum + m.amount, 0);
+              return (
+                <div
+                  className="bg-gray-800 border border-gray-700 rounded-xl p-4 cursor-pointer hover:bg-gray-700 hover:shadow-md transition-all col-span-2 md:col-span-3 lg:col-span-1"
+                  onClick={() => setSelectedCard('total')}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <TrendingUp className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                    <p className="text-xs font-medium text-gray-300 uppercase tracking-wide">Total recibido ARS</p>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    ${totalARS.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                  </p>
+                  {sinMetodoTotal > 0 ? (
+                    <p className="text-xs text-amber-400 mt-0.5">
+                      Inc. ${sinMetodoTotal.toLocaleString('es-AR', { maximumFractionDigits: 0 })} sin clasificar ({sinMetodo.length})
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-400 mt-0.5">Efectivo + transferencias</p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Efectivo recibido */}
             <div
@@ -511,7 +521,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
               </div>
               <p className="text-2xl font-bold text-red-800">
                 ${filteredMovements
-                  .filter(m => m.type === 'delivery' && m.deliveryType === 'gasto')
+                  .filter(m => m.type === 'delivery' && m.deliveryType?.toLowerCase() === 'gasto')
                   .reduce((sum, m) => sum + m.amount, 0)
                   .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
               </p>
@@ -528,7 +538,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
               </div>
               <p className="text-2xl font-bold text-orange-800">
                 ${filteredMovements
-                  .filter(m => m.type === 'delivery' && m.deliveryType !== 'gasto' && m.currency !== 'USD')
+                  .filter(m => m.type === 'delivery' && m.deliveryType?.toLowerCase() !== 'gasto' && m.currency !== 'USD')
                   .reduce((sum, m) => sum + m.amount, 0)
                   .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
               </p>
@@ -799,14 +809,14 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
             title: 'Gastos Realizados',
             color: 'red',
             icon: <ArrowUpRight className="h-5 w-5 text-red-500" />,
-            rows: filteredMovements.filter(m => m.type === 'delivery' && m.deliveryType === 'gasto'),
+            rows: filteredMovements.filter(m => m.type === 'delivery' && m.deliveryType?.toLowerCase() === 'gasto'),
             cols: ['fecha', 'descripcion', 'monto'] as const,
           },
           entregas: {
             title: 'Entregas Realizadas',
             color: 'orange',
             icon: <ArrowUpRight className="h-5 w-5 text-orange-500" />,
-            rows: filteredMovements.filter(m => m.type === 'delivery' && m.deliveryType !== 'gasto'),
+            rows: filteredMovements.filter(m => m.type === 'delivery' && m.deliveryType?.toLowerCase() !== 'gasto'),
             cols: ['fecha', 'descripcion', 'tipo', 'monto'] as const,
           },
         };
