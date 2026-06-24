@@ -20,7 +20,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'all' | 'efectivo' | 'transferencia' | 'dolares'>('all');
 
   // Card detail modal
-  const [selectedCard, setSelectedCard] = useState<'efectivo' | 'transferencia' | 'dolares' | 'gastos' | 'entregas' | null>(null);
+  const [selectedCard, setSelectedCard] = useState<'total' | 'efectivo' | 'transferencia' | 'dolares' | 'gastos' | 'entregas' | null>(null);
 
   // Edit egreso state
   const [editingMovement, setEditingMovement] = useState<CashMovement | null>(null);
@@ -430,7 +430,25 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
           </div>
           
           {/* Tarjetas resumen del filtro */}
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Total recibido ARS */}
+            <div
+              className="bg-gray-800 border border-gray-700 rounded-xl p-4 cursor-pointer hover:bg-gray-700 hover:shadow-md transition-all col-span-2 md:col-span-3 lg:col-span-1"
+              onClick={() => setSelectedCard('total')}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                <p className="text-xs font-medium text-gray-300 uppercase tracking-wide">Total recibido</p>
+              </div>
+              <p className="text-2xl font-bold text-white">
+                ${filteredMovements
+                  .filter(m => m.type === 'income' && m.currency === 'ARS')
+                  .reduce((sum, m) => sum + m.amount, 0)
+                  .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">Efectivo + transferencias</p>
+            </div>
+
             {/* Efectivo recibido */}
             <div
               className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 cursor-pointer hover:bg-emerald-100 hover:shadow-md transition-all"
@@ -749,6 +767,13 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
       {/* Card Detail Modal */}
       {selectedCard && (() => {
         const cardConfigs = {
+          total: {
+            title: 'Total Recibido (ARS)',
+            color: 'gray',
+            icon: <TrendingUp className="h-5 w-5 text-gray-300" />,
+            rows: filteredMovements.filter(m => m.type === 'income' && m.currency === 'ARS'),
+            cols: ['fecha', 'inquilino', 'propiedad', 'metodo', 'monto'] as const,
+          },
           efectivo: {
             title: 'Efectivo Recibido',
             color: 'emerald',
@@ -789,7 +814,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
         const total = cfg.rows.reduce((sum, m) => sum + m.amount, 0);
         const isUSD = selectedCard === 'dolares';
         const headerBg: Record<string, string> = {
-          emerald: 'bg-emerald-600', blue: 'bg-blue-600', yellow: 'bg-yellow-500',
+          gray: 'bg-gray-800', emerald: 'bg-emerald-600', blue: 'bg-blue-600', yellow: 'bg-yellow-500',
           red: 'bg-red-600', orange: 'bg-orange-500',
         };
         return (
@@ -827,6 +852,9 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                         {cfg.cols.includes('propiedad' as any) && (
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Propiedad</th>
                         )}
+                        {cfg.cols.includes('metodo' as any) && (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Método</th>
+                        )}
                         {cfg.cols.includes('descripcion' as any) && (
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Descripción</th>
                         )}
@@ -845,6 +873,9 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                           )}
                           {cfg.cols.includes('propiedad' as any) && (
                             <td className="px-4 py-3 text-sm text-gray-600">{m.property || <span className="text-gray-400 italic">—</span>}</td>
+                          )}
+                          {cfg.cols.includes('metodo' as any) && (
+                            <td className="px-4 py-3 text-sm text-gray-600 capitalize">{m.paymentMethod || '—'}</td>
                           )}
                           {cfg.cols.includes('descripcion' as any) && (
                             <td className="px-4 py-3 text-sm text-gray-900">{m.description}</td>
