@@ -19,6 +19,9 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
   const [selectedMovementType, setSelectedMovementType] = useState<'all' | 'income' | 'delivery'>('all');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'all' | 'efectivo' | 'transferencia' | 'dolares'>('all');
 
+  // Card detail modal
+  const [selectedCard, setSelectedCard] = useState<'efectivo' | 'transferencia' | 'dolares' | 'gastos' | 'entregas' | null>(null);
+
   // Edit egreso state
   const [editingMovement, setEditingMovement] = useState<CashMovement | null>(null);
   const [editForm, setEditForm] = useState({ description: '', amount: '', date: '', deliveryType: 'propietario' as 'propietario' | 'comision' | 'gasto', currency: 'ARS' as 'ARS' | 'USD' });
@@ -429,7 +432,10 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
           {/* Tarjetas resumen del filtro */}
           <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             {/* Efectivo recibido */}
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+            <div
+              className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 cursor-pointer hover:bg-emerald-100 hover:shadow-md transition-all"
+              onClick={() => setSelectedCard('efectivo')}
+            >
               <div className="flex items-center gap-2 mb-1">
                 <Banknote className="h-4 w-4 text-emerald-600 flex-shrink-0" />
                 <p className="text-xs font-medium text-emerald-700 uppercase tracking-wide">Efectivo recibido</p>
@@ -443,7 +449,10 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
             </div>
 
             {/* Transferencias recibidas */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div
+              className="bg-blue-50 border border-blue-200 rounded-xl p-4 cursor-pointer hover:bg-blue-100 hover:shadow-md transition-all"
+              onClick={() => setSelectedCard('transferencia')}
+            >
               <div className="flex items-center gap-2 mb-1">
                 <CreditCard className="h-4 w-4 text-blue-600 flex-shrink-0" />
                 <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">Transferencias</p>
@@ -457,7 +466,10 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
             </div>
 
             {/* Dólares recibidos */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+            <div
+              className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 cursor-pointer hover:bg-yellow-100 hover:shadow-md transition-all"
+              onClick={() => setSelectedCard('dolares')}
+            >
               <div className="flex items-center gap-2 mb-1">
                 <DollarSign className="h-4 w-4 text-yellow-600 flex-shrink-0" />
                 <p className="text-xs font-medium text-yellow-700 uppercase tracking-wide">Dólares recibidos</p>
@@ -471,7 +483,10 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
             </div>
 
             {/* Gastos (delivery tipo gasto) */}
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+            <div
+              className="bg-red-50 border border-red-200 rounded-xl p-4 cursor-pointer hover:bg-red-100 hover:shadow-md transition-all"
+              onClick={() => setSelectedCard('gastos')}
+            >
               <div className="flex items-center gap-2 mb-1">
                 <ArrowUpRight className="h-4 w-4 text-red-500 flex-shrink-0" />
                 <p className="text-xs font-medium text-red-700 uppercase tracking-wide">Gastos realizados</p>
@@ -485,7 +500,10 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
             </div>
 
             {/* Entregas al propietario y comisiones */}
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+            <div
+              className="bg-orange-50 border border-orange-200 rounded-xl p-4 cursor-pointer hover:bg-orange-100 hover:shadow-md transition-all"
+              onClick={() => setSelectedCard('entregas')}
+            >
               <div className="flex items-center gap-2 mb-1">
                 <ArrowUpRight className="h-4 w-4 text-orange-500 flex-shrink-0" />
                 <p className="text-xs font-medium text-orange-700 uppercase tracking-wide">Entregas realizadas</p>
@@ -727,6 +745,136 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
           </div>
         </div>
       )}
+
+      {/* Card Detail Modal */}
+      {selectedCard && (() => {
+        const cardConfigs = {
+          efectivo: {
+            title: 'Efectivo Recibido',
+            color: 'emerald',
+            icon: <Banknote className="h-5 w-5 text-emerald-600" />,
+            rows: filteredMovements.filter(m => m.type === 'income' && m.paymentMethod === 'efectivo'),
+            cols: ['fecha', 'inquilino', 'propiedad', 'monto'] as const,
+          },
+          transferencia: {
+            title: 'Transferencias Recibidas',
+            color: 'blue',
+            icon: <CreditCard className="h-5 w-5 text-blue-600" />,
+            rows: filteredMovements.filter(m => m.type === 'income' && m.paymentMethod === 'transferencia'),
+            cols: ['fecha', 'inquilino', 'propiedad', 'monto'] as const,
+          },
+          dolares: {
+            title: 'Dólares Recibidos',
+            color: 'yellow',
+            icon: <DollarSign className="h-5 w-5 text-yellow-600" />,
+            rows: filteredMovements.filter(m => m.type === 'income' && m.currency === 'USD'),
+            cols: ['fecha', 'inquilino', 'propiedad', 'monto'] as const,
+          },
+          gastos: {
+            title: 'Gastos Realizados',
+            color: 'red',
+            icon: <ArrowUpRight className="h-5 w-5 text-red-500" />,
+            rows: filteredMovements.filter(m => m.type === 'delivery' && m.deliveryType === 'gasto'),
+            cols: ['fecha', 'descripcion', 'monto'] as const,
+          },
+          entregas: {
+            title: 'Entregas Realizadas',
+            color: 'orange',
+            icon: <ArrowUpRight className="h-5 w-5 text-orange-500" />,
+            rows: filteredMovements.filter(m => m.type === 'delivery' && m.deliveryType !== 'gasto'),
+            cols: ['fecha', 'descripcion', 'tipo', 'monto'] as const,
+          },
+        };
+        const cfg = cardConfigs[selectedCard];
+        const total = cfg.rows.reduce((sum, m) => sum + m.amount, 0);
+        const isUSD = selectedCard === 'dolares';
+        const headerBg: Record<string, string> = {
+          emerald: 'bg-emerald-600', blue: 'bg-blue-600', yellow: 'bg-yellow-500',
+          red: 'bg-red-600', orange: 'bg-orange-500',
+        };
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+              {/* Header */}
+              <div className={`${headerBg[cfg.color]} px-6 py-4 flex items-center justify-between`}>
+                <div className="flex items-center gap-3">
+                  <div className="bg-white bg-opacity-20 p-2 rounded-lg">{cfg.icon}</div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">{cfg.title}</h3>
+                    <p className="text-sm text-white text-opacity-80">{cfg.rows.length} movimiento{cfg.rows.length !== 1 ? 's' : ''}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedCard(null)} className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Table */}
+              <div className="flex-1 overflow-auto">
+                {cfg.rows.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                    <Calendar className="h-10 w-10 mb-3" />
+                    <p className="text-sm">No hay movimientos en el período seleccionado</p>
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
+                        {cfg.cols.includes('inquilino' as any) && (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Inquilino</th>
+                        )}
+                        {cfg.cols.includes('propiedad' as any) && (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Propiedad</th>
+                        )}
+                        {cfg.cols.includes('descripcion' as any) && (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Descripción</th>
+                        )}
+                        {cfg.cols.includes('tipo' as any) && (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo</th>
+                        )}
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {cfg.rows.map((m, i) => (
+                        <tr key={m.id ?? i} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{m.date}</td>
+                          {cfg.cols.includes('inquilino' as any) && (
+                            <td className="px-4 py-3 text-sm text-gray-900 font-medium">{m.tenant || <span className="text-gray-400 italic">—</span>}</td>
+                          )}
+                          {cfg.cols.includes('propiedad' as any) && (
+                            <td className="px-4 py-3 text-sm text-gray-600">{m.property || <span className="text-gray-400 italic">—</span>}</td>
+                          )}
+                          {cfg.cols.includes('descripcion' as any) && (
+                            <td className="px-4 py-3 text-sm text-gray-900">{m.description}</td>
+                          )}
+                          {cfg.cols.includes('tipo' as any) && (
+                            <td className="px-4 py-3 text-sm text-gray-600 capitalize">{getDeliveryTypeLabel(m.deliveryType)}</td>
+                          )}
+                          <td className="px-4 py-3 text-sm font-semibold text-right text-gray-900 whitespace-nowrap">
+                            {isUSD ? 'U$S' : '$'} {m.amount.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* Footer total */}
+              {cfg.rows.length > 0 && (
+                <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-600">Total</span>
+                  <span className="text-xl font-bold text-gray-900">
+                    {isUSD ? 'U$S' : '$'} {total.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Delivery Modal */}
       {showDeliveryModal && (
