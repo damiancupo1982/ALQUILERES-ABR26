@@ -521,7 +521,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
               </div>
               <p className="text-2xl font-bold text-red-800">
                 ${filteredMovements
-                  .filter(m => m.type === 'delivery' && m.deliveryType?.toLowerCase() === 'gasto')
+                  .filter(m => m.type === 'delivery' && ['gasto', 'comision'].includes(m.deliveryType?.toLowerCase() ?? ''))
                   .reduce((sum, m) => sum + m.amount, 0)
                   .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
               </p>
@@ -538,7 +538,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
               </div>
               <p className="text-2xl font-bold text-orange-800">
                 ${filteredMovements
-                  .filter(m => m.type === 'delivery' && m.deliveryType?.toLowerCase() !== 'gasto' && m.currency !== 'USD')
+                  .filter(m => m.type === 'delivery' && !['gasto', 'comision'].includes(m.deliveryType?.toLowerCase() ?? '') && m.currency !== 'USD')
                   .reduce((sum, m) => sum + m.amount, 0)
                   .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
               </p>
@@ -809,14 +809,14 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
             title: 'Gastos Realizados',
             color: 'red',
             icon: <ArrowUpRight className="h-5 w-5 text-red-500" />,
-            rows: filteredMovements.filter(m => m.type === 'delivery' && m.deliveryType?.toLowerCase() === 'gasto'),
+            rows: filteredMovements.filter(m => m.type === 'delivery' && ['gasto', 'comision'].includes(m.deliveryType?.toLowerCase() ?? '')),
             cols: ['fecha', 'descripcion', 'monto'] as const,
           },
           entregas: {
             title: 'Entregas Realizadas',
             color: 'orange',
             icon: <ArrowUpRight className="h-5 w-5 text-orange-500" />,
-            rows: filteredMovements.filter(m => m.type === 'delivery' && m.deliveryType?.toLowerCase() !== 'gasto'),
+            rows: filteredMovements.filter(m => m.type === 'delivery' && !['gasto', 'comision'].includes(m.deliveryType?.toLowerCase() ?? '')),
             cols: ['fecha', 'descripcion', 'tipo', 'monto'] as const,
           },
         };
