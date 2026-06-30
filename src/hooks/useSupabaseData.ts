@@ -87,7 +87,10 @@ const convertCashMovementFromDB = (dbMovement: any): CashMovement => ({
   tenant: dbMovement.tenant_name || undefined,
   property: dbMovement.property_name || undefined,
   paymentMethod: dbMovement.payment_method || undefined,
-  deliveryType: dbMovement.delivery_type || undefined
+  deliveryType: dbMovement.delivery_type || undefined,
+  transferDate: dbMovement.transfer_date || undefined,
+  voucherNumber: dbMovement.voucher_number || undefined,
+  bank: dbMovement.bank || undefined,
 });
 
 const convertAdjustmentFromDB = (row: TenantAdjustmentRow): TenantAdjustment => ({

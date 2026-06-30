@@ -79,6 +79,9 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
     transferenciaARS: '',
     dolares: '',
     totalPaying: 0,
+    transferDate: '',
+    voucherNumber: '',
+    bank: '',
   });
 
   const months = [
@@ -262,6 +265,9 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
         tenant: payingReceipt.tenant,
         property: payingReceipt.property,
         paymentMethod: 'transferencia',
+        transferDate: paymentData.transferDate || undefined,
+        voucherNumber: paymentData.voucherNumber || undefined,
+        bank: paymentData.bank || undefined,
       });
     }
 
@@ -289,6 +295,9 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
       transferenciaARS: '',
       dolares: '',
       totalPaying: 0,
+      transferDate: '',
+      voucherNumber: '',
+      bank: '',
     });
 
     setShowPaymentModal(false);
@@ -302,6 +311,9 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
       transferenciaARS: '',
       dolares: '',
       totalPaying: 0,
+      transferDate: '',
+      voucherNumber: '',
+      bank: '',
     });
     setShowPaymentModal(true);
   };
@@ -1162,6 +1174,41 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
                   placeholder="0"
                 />
               </div>
+
+              {parseFloat(paymentData.transferenciaARS) > 0 && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Datos de la transferencia</p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de depósito recibido</label>
+                    <input
+                      type="date"
+                      value={paymentData.transferDate}
+                      onChange={(e) => setPaymentData((prev) => ({ ...prev, transferDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Número de comprobante</label>
+                    <input
+                      type="text"
+                      value={paymentData.voucherNumber}
+                      onChange={(e) => setPaymentData((prev) => ({ ...prev, voucherNumber: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Ej: 0001234567"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Banco</label>
+                    <input
+                      type="text"
+                      value={paymentData.bank}
+                      onChange={(e) => setPaymentData((prev) => ({ ...prev, bank: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Ej: Banco Nación"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -224,6 +224,9 @@ export interface Database {
           property_name: string | null;
           payment_method: 'efectivo' | 'transferencia' | 'dolares' | null;
           delivery_type: 'propietario' | 'comision' | 'gasto' | null;
+          transfer_date: string | null;
+          voucher_number: string | null;
+          bank: string | null;
           created_at: string;
         };
         Insert: {
@@ -237,6 +240,9 @@ export interface Database {
           property_name?: string | null;
           payment_method?: 'efectivo' | 'transferencia' | 'dolares' | null;
           delivery_type?: 'propietario' | 'comision' | 'gasto' | null;
+          transfer_date?: string | null;
+          voucher_number?: string | null;
+          bank?: string | null;
           created_at?: string;
         };
         Update: {
@@ -250,6 +256,9 @@ export interface Database {
           property_name?: string | null;
           payment_method?: 'efectivo' | 'transferencia' | 'dolares' | null;
           delivery_type?: 'propietario' | 'comision' | 'gasto' | null;
+          transfer_date?: string | null;
+          voucher_number?: string | null;
+          bank?: string | null;
         };
       };
     };

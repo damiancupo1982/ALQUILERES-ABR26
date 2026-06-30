@@ -84,6 +84,9 @@ export interface CashMovement {
   property?: string;
   paymentMethod?: 'efectivo' | 'transferencia' | 'dolares';
   deliveryType?: 'propietario' | 'comision' | 'gasto';
+  transferDate?: string;
+  voucherNumber?: string;
+  bank?: string;
 }
 
 export interface TenantAdjustment {

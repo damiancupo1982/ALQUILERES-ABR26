@@ -466,7 +466,10 @@ function AppWithSupabase() {
       tenant_name: movement.tenant || null,
       property_name: movement.property || null,
       payment_method: movement.paymentMethod || null,
-      delivery_type: movement.deliveryType || null
+      delivery_type: movement.deliveryType || null,
+      transfer_date: movement.transferDate || null,
+      voucher_number: movement.voucherNumber || null,
+      bank: movement.bank || null,
     });
     await refetch();
   };

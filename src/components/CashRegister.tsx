@@ -796,7 +796,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
             color: 'blue',
             icon: <CreditCard className="h-5 w-5 text-blue-600" />,
             rows: filteredMovements.filter(m => m.type === 'income' && m.paymentMethod === 'transferencia'),
-            cols: ['fecha', 'inquilino', 'propiedad', 'monto'] as const,
+            cols: ['fecha', 'inquilino', 'propiedad', 'fecha_deposito', 'comprobante', 'banco', 'monto'] as const,
           },
           dolares: {
             title: 'Dólares Recibidos',
@@ -871,6 +871,15 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                         {cfg.cols.includes('tipo' as any) && (
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo</th>
                         )}
+                        {cfg.cols.includes('fecha_deposito' as any) && (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha depósito</th>
+                        )}
+                        {cfg.cols.includes('comprobante' as any) && (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Comprobante</th>
+                        )}
+                        {cfg.cols.includes('banco' as any) && (
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Banco</th>
+                        )}
                         <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Monto</th>
                       </tr>
                     </thead>
@@ -892,6 +901,15 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                           )}
                           {cfg.cols.includes('tipo' as any) && (
                             <td className="px-4 py-3 text-sm text-gray-600 capitalize">{getDeliveryTypeLabel(m.deliveryType)}</td>
+                          )}
+                          {cfg.cols.includes('fecha_deposito' as any) && (
+                            <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{m.transferDate || <span className="text-gray-400 italic">—</span>}</td>
+                          )}
+                          {cfg.cols.includes('comprobante' as any) && (
+                            <td className="px-4 py-3 text-sm text-gray-600">{m.voucherNumber || <span className="text-gray-400 italic">—</span>}</td>
+                          )}
+                          {cfg.cols.includes('banco' as any) && (
+                            <td className="px-4 py-3 text-sm text-gray-600">{m.bank || <span className="text-gray-400 italic">—</span>}</td>
                           )}
                           <td className="px-4 py-3 text-sm font-semibold text-right text-gray-900 whitespace-nowrap">
                             {isUSD ? 'U$S' : '$'} {m.amount.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
