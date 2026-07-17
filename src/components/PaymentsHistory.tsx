@@ -11,13 +11,21 @@ interface PaymentsHistoryProps {
 
 const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties = [], tenants = [] }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [selectedTenant, setSelectedTenant] = useState('');
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedTenants, setSelectedTenants] = useState<string[]>([]);
   const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
+  const [selectedBuildings, setSelectedBuildings] = useState<string[]>([]);
   const [propertyDropdownOpen, setPropertyDropdownOpen] = useState(false);
+  const [buildingDropdownOpen, setBuildingDropdownOpen] = useState(false);
+  const [tenantDropdownOpen, setTenantDropdownOpen] = useState(false);
+  const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const propertyDropdownRef = useRef<HTMLDivElement>(null);
-  const [selectedBuilding, setSelectedBuilding] = useState('');
+  const buildingDropdownRef = useRef<HTMLDivElement>(null);
+  const tenantDropdownRef = useRef<HTMLDivElement>(null);
+  const monthDropdownRef = useRef<HTMLDivElement>(null);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
@@ -27,13 +35,38 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (propertyDropdownRef.current && !propertyDropdownRef.current.contains(e.target as Node)) {
-        setPropertyDropdownOpen(false);
-      }
+      const target = e.target as Node;
+      if (propertyDropdownRef.current && !propertyDropdownRef.current.contains(target)) setPropertyDropdownOpen(false);
+      if (buildingDropdownRef.current && !buildingDropdownRef.current.contains(target)) setBuildingDropdownOpen(false);
+      if (tenantDropdownRef.current && !tenantDropdownRef.current.contains(target)) setTenantDropdownOpen(false);
+      if (monthDropdownRef.current && !monthDropdownRef.current.contains(target)) setMonthDropdownOpen(false);
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(target)) setStatusDropdownOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const isItemChecked = (selected: string[], item: string) =>
+    selected.length === 0 || selected.includes(item);
+
+  const toggleMultiFilter = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    allItems: string[],
+    item: string
+  ) => {
+    setter(prev => {
+      if (prev.length === 0) return allItems.filter(i => i !== item);
+      if (prev.includes(item)) return prev.filter(i => i !== item);
+      const next = [...prev, item];
+      return next.length === allItems.length ? [] : next;
+    });
+  };
+
+  const getFilterLabel = (selected: string[], allLabel: string) => {
+    if (selected.length === 0) return allLabel;
+    if (selected.length === 1) return selected[0];
+    return `${selected.length} seleccionados`;
+  };
 
   // Convertir receipts a formato de payments para compatibilidad
   // IMPORTANTE: Solo incluir recibos con paidAmount > 0 (realmente cobrados)
@@ -67,11 +100,11 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
   const filteredPayments = payments.filter(payment => {
     // Filtrar por período del recibo (month + year), no por fecha de creación
     const yearMatch = payment.year === selectedYear;
-    const monthMatch = !selectedMonth || payment.month === selectedMonth;
-    const statusMatch = !selectedStatus || payment.status === selectedStatus;
-    const tenantMatch = !selectedTenant || payment.tenant === selectedTenant;
+    const monthMatch = selectedMonths.length === 0 || selectedMonths.includes(payment.month);
+    const statusMatch = selectedStatuses.length === 0 || selectedStatuses.includes(payment.status);
+    const tenantMatch = selectedTenants.length === 0 || selectedTenants.includes(payment.tenant);
     const propertyMatch = selectedProperties.length === 0 || selectedProperties.includes(payment.property);
-    const buildingMatch = !selectedBuilding || payment.building === selectedBuilding;
+    const buildingMatch = selectedBuildings.length === 0 || selectedBuildings.includes(payment.building);
 
     const searchMatch = !searchTerm ||
       payment.tenant.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -127,11 +160,11 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
   });
 
   const clearFilters = () => {
-    setSelectedMonth('');
-    setSelectedStatus('');
-    setSelectedTenant('');
+    setSelectedMonths([]);
+    setSelectedStatuses([]);
+    setSelectedTenants([]);
     setSelectedProperties([]);
-    setSelectedBuilding('');
+    setSelectedBuildings([]);
     setSearchTerm('');
   };
 
@@ -399,32 +432,82 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
             </select>
           </div>
 
-          <div>
+          <div ref={monthDropdownRef} className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            <button
+              type="button"
+              onClick={() => setMonthDropdownOpen(o => !o)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between"
             >
-              <option value="">Todos los meses</option>
-              {months.map((month) => (
-                <option key={month} value={month}>{month}</option>
-              ))}
-            </select>
+              <span className="text-sm truncate text-gray-700">
+                {getFilterLabel(selectedMonths, 'Todos los meses')}
+              </span>
+              <ChevronDown className={`h-4 w-4 text-gray-400 flex-shrink-0 ml-1 transition-transform ${monthDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {monthDropdownOpen && (
+              <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                <div
+                  className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                  onClick={() => setSelectedMonths([])}
+                >
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 flex-shrink-0 ${selectedMonths.length === 0 ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                    {selectedMonths.length === 0 && <Check className="h-3 w-3 text-white" />}
+                  </div>
+                  <span className="text-sm text-gray-700">Todos los meses</span>
+                </div>
+                {months.map((month) => (
+                  <div
+                    key={month}
+                    className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => toggleMultiFilter(setSelectedMonths, months, month)}
+                  >
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 flex-shrink-0 ${isItemChecked(selectedMonths, month) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                      {isItemChecked(selectedMonths, month) && <Check className="h-3 w-3 text-white" />}
+                    </div>
+                    <span className="text-sm text-gray-700">{month}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div>
+          <div ref={tenantDropdownRef} className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">Inquilino</label>
-            <select
-              value={selectedTenant}
-              onChange={(e) => setSelectedTenant(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            <button
+              type="button"
+              onClick={() => setTenantDropdownOpen(o => !o)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between"
             >
-              <option value="">Todos los inquilinos</option>
-              {uniqueTenants.map((tenant) => (
-                <option key={tenant} value={tenant}>{tenant}</option>
-              ))}
-            </select>
+              <span className="text-sm truncate text-gray-700">
+                {getFilterLabel(selectedTenants, 'Todos los inquilinos')}
+              </span>
+              <ChevronDown className={`h-4 w-4 text-gray-400 flex-shrink-0 ml-1 transition-transform ${tenantDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {tenantDropdownOpen && (
+              <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                <div
+                  className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                  onClick={() => setSelectedTenants([])}
+                >
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 flex-shrink-0 ${selectedTenants.length === 0 ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                    {selectedTenants.length === 0 && <Check className="h-3 w-3 text-white" />}
+                  </div>
+                  <span className="text-sm text-gray-700">Todos los inquilinos</span>
+                </div>
+                {uniqueTenants.map((tenant) => (
+                  <div
+                    key={tenant}
+                    className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => toggleMultiFilter(setSelectedTenants, uniqueTenants, tenant)}
+                  >
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 flex-shrink-0 ${isItemChecked(selectedTenants, tenant) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                      {isItemChecked(selectedTenants, tenant) && <Check className="h-3 w-3 text-white" />}
+                    </div>
+                    <span className="text-sm text-gray-700">{tenant}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div ref={propertyDropdownRef} className="relative">
@@ -479,31 +562,85 @@ const PaymentsHistory: React.FC<PaymentsHistoryProps> = ({ receipts, properties 
             )}
           </div>
 
-          <div>
+          <div ref={buildingDropdownRef} className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">Edificio</label>
-            <select
-              value={selectedBuilding}
-              onChange={(e) => setSelectedBuilding(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            <button
+              type="button"
+              onClick={() => setBuildingDropdownOpen(o => !o)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between"
             >
-              <option value="">Todos los edificios</option>
-              {uniqueBuildings.map((building) => (
-                <option key={building} value={building}>{building}</option>
-              ))}
-            </select>
+              <span className="text-sm truncate text-gray-700">
+                {getFilterLabel(selectedBuildings, 'Todos los edificios')}
+              </span>
+              <ChevronDown className={`h-4 w-4 text-gray-400 flex-shrink-0 ml-1 transition-transform ${buildingDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {buildingDropdownOpen && (
+              <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                <div
+                  className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                  onClick={() => setSelectedBuildings([])}
+                >
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 flex-shrink-0 ${selectedBuildings.length === 0 ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                    {selectedBuildings.length === 0 && <Check className="h-3 w-3 text-white" />}
+                  </div>
+                  <span className="text-sm text-gray-700">Todos los edificios</span>
+                </div>
+                {uniqueBuildings.map((building) => (
+                  <div
+                    key={building}
+                    className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => toggleMultiFilter(setSelectedBuildings, uniqueBuildings, building)}
+                  >
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 flex-shrink-0 ${isItemChecked(selectedBuildings, building) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                      {isItemChecked(selectedBuildings, building) && <Check className="h-3 w-3 text-white" />}
+                    </div>
+                    <span className="text-sm text-gray-700">{building}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div>
+          <div ref={statusDropdownRef} className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            <button
+              type="button"
+              onClick={() => setStatusDropdownOpen(o => !o)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-left flex items-center justify-between"
             >
-              <option value="">Todos los estados</option>
-              <option value="confirmado">Confirmado</option>
-              <option value="pendiente_confirmacion">Pendiente confirmación</option>
-            </select>
+              <span className="text-sm truncate text-gray-700">
+                {getFilterLabel(
+                  selectedStatuses.map(s => s === 'confirmado' ? 'Confirmado' : 'Pendiente'),
+                  'Todos los estados'
+                )}
+              </span>
+              <ChevronDown className={`h-4 w-4 text-gray-400 flex-shrink-0 ml-1 transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {statusDropdownOpen && (
+              <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+                <div
+                  className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                  onClick={() => setSelectedStatuses([])}
+                >
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 flex-shrink-0 ${selectedStatuses.length === 0 ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                    {selectedStatuses.length === 0 && <Check className="h-3 w-3 text-white" />}
+                  </div>
+                  <span className="text-sm text-gray-700">Todos los estados</span>
+                </div>
+                {[{value: 'confirmado', label: 'Confirmado'}, {value: 'pendiente_confirmacion', label: 'Pendiente'}].map(({ value, label }) => (
+                  <div
+                    key={value}
+                    className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => toggleMultiFilter(setSelectedStatuses, ['confirmado', 'pendiente_confirmacion'], value)}
+                  >
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center mr-2 flex-shrink-0 ${isItemChecked(selectedStatuses, value) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                      {isItemChecked(selectedStatuses, value) && <Check className="h-3 w-3 text-white" />}
+                    </div>
+                    <span className="text-sm text-gray-700">{label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
