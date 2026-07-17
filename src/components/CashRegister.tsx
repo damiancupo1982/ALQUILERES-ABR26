@@ -11,7 +11,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [deliveryAmount, setDeliveryAmount] = useState('');
   const [selectedCurrency, setSelectedCurrency] = useState<'ARS' | 'USD'>('ARS');
-  const [deliveryType, setDeliveryType] = useState<'propietario' | 'comision' | 'gasto'>('propietario');
+  const [deliveryType, setDeliveryType] = useState<'propietario' | 'comision' | 'gasto' | 'marta'>('propietario');
   const [deliveryDescription, setDeliveryDescription] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
@@ -24,7 +24,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
 
   // Edit egreso state
   const [editingMovement, setEditingMovement] = useState<CashMovement | null>(null);
-  const [editForm, setEditForm] = useState({ description: '', amount: '', date: '', deliveryType: 'propietario' as 'propietario' | 'comision' | 'gasto', currency: 'ARS' as 'ARS' | 'USD' });
+  const [editForm, setEditForm] = useState({ description: '', amount: '', date: '', deliveryType: 'propietario' as 'propietario' | 'comision' | 'gasto' | 'marta', currency: 'ARS' as 'ARS' | 'USD' });
   const [showConfirmEdit, setShowConfirmEdit] = useState(false);
   const [pendingEdit, setPendingEdit] = useState<CashMovement | null>(null);
 
@@ -74,7 +74,8 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
       if (deliveryDescription.trim()) return deliveryDescription.trim();
       
       switch (deliveryType) {
-        case 'propietario': return 'Entrega al propietario';
+        case 'propietario': return 'Entrega a Damián';
+        case 'marta': return 'Entrega a Marta';
         case 'comision': return 'Pago de comisión';
         case 'gasto': return 'Pago de gasto';
         default: return 'Entrega';
@@ -107,7 +108,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
       const newMovement: CashMovement = {
         id: Date.now(),
         type: 'delivery',
-        description: `Entrega total al propietario - ${currency}`,
+        description: `Entrega total a Damián - ${currency}`,
         amount: currentBalance,
         currency,
         date: new Date().toISOString().split('T')[0],
@@ -126,7 +127,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
       const newMovement: CashMovement = {
         id: Date.now(),
         type: 'delivery',
-        description: `Entrega total al propietario - Transferencias ARS`,
+        description: `Entrega total a Damián - Transferencias ARS`,
         amount: transferBalanceARS,
         currency: 'ARS',
         date: new Date().toISOString().split('T')[0],
@@ -183,7 +184,8 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
 
   const getDeliveryTypeLabel = (type?: string) => {
     switch (type) {
-      case 'propietario': return 'Propietario';
+      case 'propietario': return 'Damián';
+      case 'marta': return 'Marta';
       case 'comision': return 'Comisión';
       case 'gasto': return 'Gasto';
       default: return 'N/A';
@@ -196,7 +198,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
       description: movement.description,
       amount: String(movement.amount),
       date: movement.date,
-      deliveryType: (movement.deliveryType as 'propietario' | 'comision' | 'gasto') || 'propietario',
+      deliveryType: (movement.deliveryType as 'propietario' | 'comision' | 'gasto' | 'marta') || 'propietario',
       currency: movement.currency as 'ARS' | 'USD',
     });
   };
@@ -538,14 +540,14 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
               </div>
               <p className="text-2xl font-bold text-orange-800">
                 ${filteredMovements
-                  .filter(m => m.type === 'delivery' && !['gasto', 'comision'].includes(m.deliveryType?.toLowerCase() ?? '') && m.currency !== 'USD')
+                  .filter(m => m.type === 'delivery' && m.deliveryType === 'propietario' && m.currency !== 'USD')
                   .reduce((sum, m) => sum + m.amount, 0)
                   .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
               </p>
-              {filteredMovements.filter(m => m.type === 'delivery' && m.currency === 'USD').reduce((sum, m) => sum + m.amount, 0) > 0 && (
+              {filteredMovements.filter(m => m.type === 'delivery' && m.deliveryType === 'propietario' && m.currency === 'USD').reduce((sum, m) => sum + m.amount, 0) > 0 && (
                 <p className="text-sm font-semibold text-orange-700 mt-0.5">
                   + U$S {filteredMovements
-                    .filter(m => m.type === 'delivery' && m.currency === 'USD')
+                    .filter(m => m.type === 'delivery' && m.deliveryType === 'propietario' && m.currency === 'USD')
                     .reduce((sum, m) => sum + m.amount, 0)
                     .toLocaleString('es-AR', { maximumFractionDigits: 0 })}
                 </p>
@@ -703,7 +705,8 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                   onChange={(e) => setEditForm(f => ({ ...f, deliveryType: e.target.value as any }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="propietario">Al Propietario</option>
+                  <option value="propietario">Entrega a Damián</option>
+                  <option value="marta">Entrega a Marta</option>
                   <option value="comision">Comisión</option>
                   <option value="gasto">Gasto</option>
                 </select>
@@ -939,7 +942,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
       {showDeliveryModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Entregar Dinero al Propietario</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Entregar Dinero</h3>
             
             <div className="space-y-4">
               <div>
@@ -965,7 +968,8 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                   onChange={(e) => setDeliveryType(e.target.value as any)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="propietario">Al Propietario</option>
+                  <option value="propietario">Entrega a Damián</option>
+                  <option value="marta">Entrega a Marta</option>
                   <option value="comision">Comisión</option>
                   <option value="gasto">Gasto</option>
                 </select>
@@ -997,7 +1001,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                   value={deliveryDescription}
                   onChange={(e) => setDeliveryDescription(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={`Entrega ${deliveryType === 'propietario' ? 'al propietario' : deliveryType === 'comision' ? 'de comisión' : 'de gasto'}`}
+                  placeholder={`Entrega ${deliveryType === 'propietario' ? 'a Damián' : deliveryType === 'marta' ? 'a Marta' : deliveryType === 'comision' ? 'de comisión' : 'de gasto'}`}
                 />
               </div>
             </div>
