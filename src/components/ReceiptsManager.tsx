@@ -26,6 +26,7 @@ interface ReceiptsManagerProps {
   setReceipts: React.Dispatch<React.SetStateAction<Receipt[]>>;
   addCashMovement: (movement: any) => void;
   updateTenantBalance: (tenantName: string, newBalance: number) => void;
+  deleteCashMovementsByReceipt: (receiptId: number) => void;
 }
 
 const currencyFormatter = (amount: number, currency: 'ARS' | 'USD' | undefined | null) => {
@@ -49,6 +50,7 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
   setReceipts,
   addCashMovement,
   updateTenantBalance,
+  deleteCashMovementsByReceipt,
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -196,7 +198,8 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
   };
 
   const handleDelete = (id: number) => {
-    if (confirm('¿Está seguro de eliminar este recibo?')) {
+    if (confirm('¿Está seguro de eliminar este recibo? Se borrarán también los movimientos de caja asociados a sus pagos.')) {
+      deleteCashMovementsByReceipt(id);
       setReceipts((prev) => prev.filter((r) => r.id !== id));
     }
   };
@@ -252,6 +255,7 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
         tenant: payingReceipt.tenant,
         property: payingReceipt.property,
         paymentMethod: 'efectivo',
+        receiptId: payingReceipt.id,
       });
     }
 
@@ -268,6 +272,7 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
         transferDate: paymentData.transferDate || undefined,
         voucherNumber: paymentData.voucherNumber || undefined,
         bank: paymentData.bank || undefined,
+        receiptId: payingReceipt.id,
       });
     }
 
@@ -281,6 +286,7 @@ const ReceiptsManager: React.FC<ReceiptsManagerProps> = ({
         tenant: payingReceipt.tenant,
         property: payingReceipt.property,
         paymentMethod: 'dolares',
+        receiptId: payingReceipt.id,
       });
     }
 

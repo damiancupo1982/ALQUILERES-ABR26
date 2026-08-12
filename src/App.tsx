@@ -87,6 +87,7 @@ export interface CashMovement {
   transferDate?: string;
   voucherNumber?: string;
   bank?: string;
+  receiptId?: number;
 }
 
 export interface TenantAdjustment {
@@ -433,6 +434,10 @@ function App() {
     setCashMovements(prev => [newMovement, ...prev]);
   };
 
+  const deleteCashMovementsByReceipt = (receiptId: number) => {
+    setCashMovements(prev => prev.filter(m => m.receiptId !== receiptId));
+  };
+
   // Función para actualizar saldo de inquilino
   const updateTenantBalance = (tenantName: string, newBalance: number) => {
     setTenants(prev => prev.map(tenant => 
@@ -487,6 +492,7 @@ function App() {
           setReceipts={setReceipts}
           addCashMovement={addCashMovement}
           updateTenantBalance={updateTenantBalance}
+          deleteCashMovementsByReceipt={deleteCashMovementsByReceipt}
         />;
       case 'history':
         return <PaymentsHistory receipts={receipts} />;
