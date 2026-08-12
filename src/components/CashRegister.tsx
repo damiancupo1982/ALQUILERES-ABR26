@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wallet, DollarSign, TrendingUp, ArrowUpRight, ArrowDownLeft, Download, Calendar, Filter, CreditCard, Banknote, X, Pencil, AlertTriangle } from 'lucide-react';
+import { Wallet, DollarSign, TrendingUp, ArrowUpRight, ArrowDownLeft, Download, Calendar, Filter, CreditCard, Banknote, X, Pencil, AlertTriangle, Trash2, Lock } from 'lucide-react';
 import { CashMovement } from '../App';
 
 interface CashRegisterProps {
@@ -24,9 +24,49 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
 
   // Edit egreso state
   const [editingMovement, setEditingMovement] = useState<CashMovement | null>(null);
-  const [editForm, setEditForm] = useState({ description: '', amount: '', date: '', deliveryType: 'propietario' as 'propietario' | 'comision' | 'gasto' | 'marta', currency: 'ARS' as 'ARS' | 'USD' });
+  const [editForm, setEditForm] = useState({ description: '', amount: '', date: '', deliveryType: 'propietario' as 'propietario' | 'comision' | 'gasto' | 'marta', currency: 'ARS' as 'ARS' | 'USD', paymentMethod: 'efectivo' as 'efectivo' | 'transferencia' | 'dolares', type: 'income' as 'income' | 'delivery' });
   const [showConfirmEdit, setShowConfirmEdit] = useState(false);
   const [pendingEdit, setPendingEdit] = useState<CashMovement | null>(null);
+
+  // Master key + delete state
+  const MASTER_KEY = '842114';
+  const [pendingAction, setPendingAction] = useState<{ type: 'edit' | 'delete'; movement: CashMovement } | null>(null);
+  const [masterKeyInput, setMasterKeyInput] = useState('');
+  const [masterKeyError, setMasterKeyError] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<CashMovement | null>(null);
+
+  const requestEdit = (movement: CashMovement) => {
+    setPendingAction({ type: 'edit', movement });
+    setMasterKeyInput('');
+    setMasterKeyError(false);
+  };
+
+  const requestDelete = (movement: CashMovement) => {
+    setPendingAction({ type: 'delete', movement });
+    setMasterKeyInput('');
+    setMasterKeyError(false);
+  };
+
+  const verifyMasterKey = () => {
+    if (masterKeyInput === MASTER_KEY) {
+      if (pendingAction?.type === 'edit') {
+        openEditModal(pendingAction.movement);
+      } else if (pendingAction?.type === 'delete') {
+        setPendingDelete(pendingAction.movement);
+      }
+      setPendingAction(null);
+      setMasterKeyInput('');
+      setMasterKeyError(false);
+    } else {
+      setMasterKeyError(true);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    setCashMovements(prev => prev.filter(m => m.id !== pendingDelete.id));
+    setPendingDelete(null);
+  };
 
   // Calculate current balances - Caja Pesos only includes 'efectivo' payments
   const balanceARS = cashMovements.reduce((sum, movement) => {
@@ -200,6 +240,8 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
       date: movement.date,
       deliveryType: (movement.deliveryType as 'propietario' | 'comision' | 'gasto' | 'marta') || 'propietario',
       currency: movement.currency as 'ARS' | 'USD',
+      paymentMethod: (movement.paymentMethod || 'efectivo') as 'efectivo' | 'transferencia' | 'dolares',
+      type: movement.type,
     });
   };
 
@@ -210,9 +252,10 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
       description: editForm.description.trim() || editingMovement.description,
       amount: parseFloat(editForm.amount) || editingMovement.amount,
       date: editForm.date || editingMovement.date,
-      deliveryType: editForm.deliveryType,
       currency: editForm.currency,
-      paymentMethod: editForm.currency === 'USD' ? 'dolares' : editingMovement.paymentMethod,
+      type: editForm.type,
+      paymentMethod: editForm.paymentMethod,
+      deliveryType: editForm.type === 'delivery' ? editForm.deliveryType : undefined,
     };
     setPendingEdit(updated);
     setShowConfirmEdit(true);
@@ -594,8 +637,7 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
               {filteredMovements.map((movement) => (
                 <tr
                   key={movement.id}
-                  className={`hover:bg-gray-50 transition-colors ${movement.type === 'delivery' ? 'cursor-pointer' : ''}`}
-                  onClick={() => movement.type === 'delivery' && openEditModal(movement)}
+                  className="hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-2 py-2 whitespace-nowrap">
                     <div className="flex items-center">
@@ -613,9 +655,6 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                       <span className={`text-xs font-medium ${movement.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                         {movement.type === 'income' ? 'Ingreso' : 'Egreso'}
                       </span>
-                      {movement.type === 'delivery' && (
-                        <Pencil className="h-3 w-3 text-gray-400 ml-1" title="Editar egreso" />
-                      )}
                     </div>
                   </td>
                   <td className="px-2 py-2">
@@ -643,29 +682,59 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                     )}
                   </td>
                   <td className="px-2 py-2 whitespace-nowrap text-right">
-                    <span className={`text-xs font-semibold ${movement.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                      {movement.type === 'income' ? '+' : '-'}{movement.currency === 'USD' ? 'U$S' : '$'} {movement.amount.toLocaleString()}
-                    </span>
+                    <div className="flex items-center justify-end gap-2">
+                      <span className={`text-xs font-semibold ${movement.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                        {movement.type === 'income' ? '+' : '-'}{movement.currency === 'USD' ? 'U$S' : '$'} {movement.amount.toLocaleString()}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); requestEdit(movement); }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Editar movimiento"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); requestDelete(movement); }}
+                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Eliminar movimiento"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   </td>
                 </tr>
-              ))}
+            ))}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Edit Egreso Modal */}
+      {/* Edit Movimiento Modal */}
       {editingMovement && !showConfirmEdit && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
             <div className="flex justify-between items-center mb-5">
-              <h3 className="text-lg font-semibold text-gray-900">Editar Egreso</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Editar Movimiento</h3>
               <button onClick={() => setEditingMovement(null)} className="text-gray-400 hover:text-gray-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de movimiento</label>
+                <select
+                  value={editForm.type}
+                  onChange={(e) => setEditForm(f => ({ ...f, type: e.target.value as 'income' | 'delivery' }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="income">Ingreso</option>
+                  <option value="delivery">Egreso</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
                 <input
@@ -676,41 +745,60 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Monto</label>
-                <input
-                  type="number"
-                  value={editForm.amount}
-                  onChange={(e) => setEditForm(f => ({ ...f, amount: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Monto</label>
+                  <input
+                    type="number"
+                    value={editForm.amount}
+                    onChange={(e) => setEditForm(f => ({ ...f, amount: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
+                  <select
+                    value={editForm.currency}
+                    onChange={(e) => setEditForm(f => ({ ...f, currency: e.target.value as 'ARS' | 'USD' }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="ARS">Pesos Argentinos</option>
+                    <option value="USD">Dólares</option>
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Moneda</label>
-                <select
-                  value={editForm.currency}
-                  onChange={(e) => setEditForm(f => ({ ...f, currency: e.target.value as 'ARS' | 'USD' }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="ARS">Pesos Argentinos</option>
-                  <option value="USD">Dólares</option>
-                </select>
-              </div>
+              {editForm.type === 'income' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Método de pago</label>
+                  <select
+                    value={editForm.paymentMethod}
+                    onChange={(e) => setEditForm(f => ({ ...f, paymentMethod: e.target.value as 'efectivo' | 'transferencia' | 'dolares' }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="efectivo">Efectivo</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="dolares">Dólares</option>
+                  </select>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-                <select
-                  value={editForm.deliveryType}
-                  onChange={(e) => setEditForm(f => ({ ...f, deliveryType: e.target.value as any }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="propietario">Entrega a Damián</option>
-                  <option value="marta">Entrega a Marta</option>
-                  <option value="comision">Comisión</option>
-                  <option value="gasto">Gasto</option>
-                </select>
-              </div>
+              {editForm.type === 'delivery' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de egreso</label>
+                  <select
+                    value={editForm.deliveryType}
+                    onChange={(e) => setEditForm(f => ({ ...f, deliveryType: e.target.value as any }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="propietario">Entrega a Damián</option>
+                    <option value="marta">Entrega a Marta</option>
+                    <option value="comision">Comisión</option>
+                    <option value="gasto">Gasto</option>
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
@@ -753,9 +841,9 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
             </div>
 
             <p className="text-sm text-gray-600 mb-4">
-              Estás por modificar el egreso <strong>"{pendingEdit.description}"</strong> por{' '}
+              Estás por modificar el movimiento <strong>"{pendingEdit.description}"</strong> por{' '}
               <strong>{pendingEdit.currency === 'USD' ? 'U$S' : '$'} {pendingEdit.amount.toLocaleString()}</strong>.
-              Esta acción afectará el saldo de caja.
+              Esta acción afectará el saldo de caja y todos los resúmenes relacionados.
             </p>
             <p className="text-sm font-medium text-amber-700">¿Estás seguro de guardar estos cambios?</p>
 
@@ -771,6 +859,96 @@ const CashRegister: React.FC<CashRegisterProps> = ({ cashMovements, setCashMovem
                 className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
               >
                 Sí, guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Master Key Modal */}
+      {pendingAction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 border-l-4 border-red-500">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-red-100 p-2 rounded-lg">
+                <Lock className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Clave maestra requerida</h3>
+                <p className="text-xs text-gray-500">
+                  {pendingAction.type === 'edit' ? 'Editar movimiento' : 'Eliminar movimiento'}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Ingrese la clave maestra para {pendingAction.type === 'edit' ? 'editar' : 'eliminar'} el movimiento{' '}
+              <strong>"{pendingAction.movement.description}"</strong>.
+            </p>
+
+            <input
+              type="password"
+              value={masterKeyInput}
+              onChange={(e) => { setMasterKeyInput(e.target.value); setMasterKeyError(false); }}
+              onKeyDown={(e) => e.key === 'Enter' && verifyMasterKey()}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${masterKeyError ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="Clave maestra"
+              autoFocus
+            />
+            {masterKeyError && (
+              <p className="text-xs text-red-600 mt-1">Clave incorrecta. Intente nuevamente.</p>
+            )}
+
+            <div className="flex justify-end space-x-3 pt-5">
+              <button
+                onClick={() => { setPendingAction(null); setMasterKeyInput(''); setMasterKeyError(false); }}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={verifyMasterKey}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {pendingDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 border-l-4 border-red-500">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-red-100 p-2 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Eliminar movimiento</h3>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Estás por eliminar el movimiento{' '}
+              <strong>"{pendingDelete.description}"</strong>{' '}
+              por{' '}
+              <strong>{pendingDelete.currency === 'USD' ? 'U$S' : '$'} {pendingDelete.amount.toLocaleString()}</strong>.
+              Esta acción afectará el saldo de caja y todos los resúmenes relacionados.
+            </p>
+            <p className="text-sm font-medium text-red-700">¿Estás seguro? Esta acción no se puede deshacer.</p>
+
+            <div className="flex justify-end space-x-3 pt-5">
+              <button
+                onClick={() => setPendingDelete(null)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Sí, eliminar
               </button>
             </div>
           </div>
