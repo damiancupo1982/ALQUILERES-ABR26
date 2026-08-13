@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { X, Printer, CheckSquare, Square } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { X, Printer, CheckSquare, Square, TrendingUp, DollarSign, BarChart3, FileText, AlertTriangle } from 'lucide-react';
 import { Property, Tenant, Receipt } from '../App';
 
 interface MonthlySummaryProps {
@@ -20,18 +20,25 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
-  const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>(() => properties.map(property => property.id));
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>(() => properties.map(p => p.id));
+
+  useEffect(() => {
+    setSelectedPropertyIds(current => {
+      const availableIds = properties.map(p => p.id);
+      if (current.length === 0 || current.every(id => !availableIds.includes(id))) return availableIds;
+      return current.filter(id => availableIds.includes(id));
+    });
+  }, [properties]);
 
   const allPropertiesSelected = selectedPropertyIds.length === properties.length && properties.length > 0;
 
   const toggleAllProperties = () => {
-    setSelectedPropertyIds(allPropertiesSelected ? [] : properties.map(property => property.id));
+    setSelectedPropertyIds(allPropertiesSelected ? [] : properties.map(p => p.id));
   };
 
   const toggleProperty = (propertyId: number) => {
-    setSelectedPropertyIds(current => current.includes(propertyId)
-      ? current.filter(id => id !== propertyId)
-      : [...current, propertyId]
+    setSelectedPropertyIds(current =>
+      current.includes(propertyId) ? current.filter(id => id !== propertyId) : [...current, propertyId]
     );
   };
 
@@ -51,10 +58,52 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
 
+  const selectedProperties = useMemo(
+    () => properties.filter(p => selectedPropertyIds.includes(p.id)),
+    [properties, selectedPropertyIds]
+  );
+
+  const selectedPropertyNames = useMemo(
+    () => new Set(selectedProperties.map(p => p.name)),
+    [selectedProperties]
+  );
+
+  const yearReceipts = useMemo(
+    () => receipts.filter(r => r.year === selectedYear && selectedPropertyNames.has(r.property)),
+    [receipts, selectedYear, selectedPropertyNames]
+  );
+
+  const dashboardData = useMemo(() => {
+    const arsReceipts = yearReceipts.filter(r => r.currency !== 'USD');
+    const usdReceipts = yearReceipts.filter(r => r.currency === 'USD');
+    const arsTotal = arsReceipts.reduce((sum, r) => sum + (r.paidAmount || 0), 0);
+    const usdTotal = usdReceipts.reduce((sum, r) => sum + (r.paidAmount || 0), 0);
+
+    const monthly = months.map(month => {
+      const monthReceipts = yearReceipts.filter(r => r.month === month);
+      const ars = monthReceipts.filter(r => r.currency !== 'USD').reduce((sum, r) => sum + (r.paidAmount || 0), 0);
+      const usd = monthReceipts.filter(r => r.currency === 'USD').reduce((sum, r) => sum + (r.paidAmount || 0), 0);
+      return { month: month.slice(0, 3), ars, usd };
+    });
+
+    const pendingReceipts = yearReceipts.filter(r => r.status === 'pendiente' || r.status === 'vencido');
+    const pendingTotal = pendingReceipts.reduce((sum, r) => sum + (r.remainingBalance || 0), 0);
+
+    return {
+      arsTotal,
+      usdTotal,
+      paymentCount: yearReceipts.length,
+      pendingCount: pendingReceipts.length,
+      pendingTotal,
+      arsAverage: arsReceipts.length ? arsTotal / arsReceipts.length : 0,
+      usdAverage: usdReceipts.length ? usdTotal / usdReceipts.length : 0,
+      monthly,
+      maxMonthly: Math.max(...monthly.map(m => m.ars), 1),
+    };
+  }, [yearReceipts, months]);
+
   const summaryData = useMemo(() => {
-    const sortedProperties = properties
-      .filter(property => selectedPropertyIds.includes(property.id))
-      .sort((a, b) => {
+    const sortedProperties = [...selectedProperties].sort((a, b) => {
       const buildingCompare = a.building.localeCompare(b.building);
       if (buildingCompare !== 0) return buildingCompare;
       return a.name.localeCompare(b.name);
@@ -73,17 +122,13 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
       const monthlyPayments = receipts.filter(r => {
         const receiptMonth = months.indexOf(r.month);
-        return r.property === property.name &&
-               receiptMonth === selectedMonth &&
-               r.year === selectedYear;
+        return r.property === property.name && receiptMonth === selectedMonth && r.year === selectedYear;
       });
 
       const monthlyTotal = monthlyPayments.reduce((sum, r) => sum + (r.paidAmount || 0), 0);
 
       const allTenantReceipts = receipts.filter(r => {
-        if (tenant) {
-          return r.tenant === tenant.name;
-        }
+        if (tenant) return r.tenant === tenant.name;
         return r.property === property.name;
       });
 
@@ -94,9 +139,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         propertyName: property.name,
         tenant: tenantName,
         monthlyPayment: monthlyTotal,
-        totalDebt: totalDebt,
+        totalDebt,
         color: buildingColorMap.get(property.building),
-        isVacant: isVacant,
+        isVacant,
       };
     });
 
@@ -104,11 +149,12 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     const totalDebt = rows.reduce((sum, row) => sum + row.totalDebt, 0);
 
     return { rows, totalMonthlyPayments, totalDebt };
-  }, [properties, tenants, receipts, selectedMonth, selectedYear, selectedPropertyIds]);
+  }, [selectedProperties, tenants, receipts, selectedMonth, selectedYear, months]);
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const formatARS = (amount: number) => `$${amount.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+  const formatUSD = (amount: number) => `U$S ${amount.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+
+  const handlePrint = () => window.print();
 
   return (
     <div className={embedded ? 'space-y-6' : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'}>
@@ -116,10 +162,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
         <div className="flex justify-between items-center p-6 border-b print:hidden">
           <h2 className="text-2xl font-bold text-gray-800">Resumen Mensual de Pagos</h2>
           {!embedded && onClose && (
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
               <X className="h-6 w-6" />
             </button>
           )}
@@ -135,9 +178,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 {months.map((month, index) => (
-                  <option key={index} value={index}>
-                    {month}
-                  </option>
+                  <option key={index} value={index}>{month}</option>
                 ))}
               </select>
             </div>
@@ -148,10 +189,8 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
+                {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(year => (
+                  <option key={year} value={year}>{year}</option>
                 ))}
               </select>
             </div>
@@ -193,6 +232,118 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
         <div className={embedded ? 'overflow-auto p-6' : 'flex-1 overflow-auto p-6'}>
           <div className="print:p-8">
+
+            {/* ===== Dashboard cards ===== */}
+            <section className="space-y-6 mb-8 print:hidden">
+              {/* Summary cards row */}
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                {/* Total ARS */}
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div className="rounded-full bg-emerald-50 p-2.5 text-emerald-600">
+                      <DollarSign className="h-5 w-5" />
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">ARS</span>
+                  </div>
+                  <p className="mt-4 text-3xl font-bold tracking-tight text-slate-950">{formatARS(dashboardData.arsTotal)}</p>
+                  <p className="mt-1 text-sm text-slate-500">Total cobrado en {selectedYear}</p>
+                </div>
+
+                {/* Total USD */}
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div className="rounded-full bg-blue-50 p-2.5 text-blue-600">
+                      <DollarSign className="h-5 w-5" />
+                    </div>
+                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">USD</span>
+                  </div>
+                  <p className="mt-4 text-3xl font-bold tracking-tight text-slate-950">{formatUSD(dashboardData.usdTotal)}</p>
+                  <p className="mt-1 text-sm text-slate-500">Total cobrado en {selectedYear}</p>
+                </div>
+
+                {/* Payments count */}
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div className="rounded-full bg-violet-50 p-2.5 text-violet-600">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <p className="mt-4 text-3xl font-bold tracking-tight text-slate-950">{dashboardData.paymentCount}</p>
+                  <p className="mt-1 text-sm text-slate-500">Pagos registrados</p>
+                </div>
+
+                {/* Pending */}
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div className="rounded-full bg-amber-50 p-2.5 text-amber-600">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">Pendiente</span>
+                  </div>
+                  <p className="mt-4 text-3xl font-bold tracking-tight text-slate-950">{formatARS(dashboardData.pendingTotal)}</p>
+                  <p className="mt-1 text-sm text-slate-500">{dashboardData.pendingCount} recibos pendientes / vencidos</p>
+                </div>
+              </div>
+
+              {/* Monthly income bar chart */}
+              <div className="rounded-xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
+                <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                    <h2 className="text-lg font-bold text-slate-900">Ingresos Mensuales {selectedYear}</h2>
+                  </div>
+                  <div className="flex items-center gap-5 text-xs text-slate-500">
+                    <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-blue-500" />Cobrado ARS</span>
+                    <span className="flex items-center gap-2"><TrendingUp className="h-3 w-3 text-orange-500" />Cobrado USD</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-6 gap-2 sm:grid-cols-12 sm:gap-3">
+                  {dashboardData.monthly.map(item => {
+                    const height = item.ars ? Math.max((item.ars / dashboardData.maxMonthly) * 100, 4) : 2;
+                    return (
+                      <div key={item.month} className="min-w-0 text-center">
+                        <div className="mb-2 flex h-32 items-end justify-center border-b border-slate-100">
+                          <div
+                            className="w-full rounded-t-md bg-gradient-to-t from-blue-600 to-blue-400 transition-all duration-300 hover:from-blue-700 hover:to-blue-500"
+                            style={{ height: `${height}%` }}
+                            title={formatARS(item.ars)}
+                          />
+                        </div>
+                        <p className="text-xs font-medium text-slate-500">{item.month}</p>
+                        <p className="mt-1 truncate text-xs font-bold text-slate-900">{formatARS(item.ars)}</p>
+                        {item.usd > 0 && (
+                          <p className="truncate text-xs font-medium text-orange-600">{formatUSD(item.usd)}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Average row */}
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">Promedio por recibo ARS</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-950">{formatARS(dashboardData.arsAverage)}</p>
+                  </div>
+                  <div className="rounded-full bg-emerald-50 p-3 text-emerald-600">
+                    <TrendingUp className="h-6 w-6" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">Promedio por recibo USD</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-950">{formatUSD(dashboardData.usdAverage)}</p>
+                  </div>
+                  <div className="rounded-full bg-blue-50 p-3 text-blue-600">
+                    <TrendingUp className="h-6 w-6" />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* ===== Monthly table ===== */}
             <div className="text-center mb-6 print:block">
               <h1 className="text-3xl font-bold text-gray-900 uppercase">
                 {months[selectedMonth]} {selectedYear}
@@ -219,16 +370,10 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                     return (
                       <tr key={index} className={`${rowBg} ${rowText}`}>
                         <td className={`border-2 ${rowBorder} px-4 py-2 font-bold`}>
-                          {index === 0 || row.building !== summaryData.rows[index - 1].building
-                            ? row.building
-                            : ''}
+                          {index === 0 || row.building !== summaryData.rows[index - 1].building ? row.building : ''}
                         </td>
-                        <td className={`border-2 ${rowBorder} px-4 py-2`}>
-                          {row.propertyName}
-                        </td>
-                        <td className={`border-2 ${rowBorder} px-4 py-2 font-semibold`}>
-                          {row.tenant}
-                        </td>
+                        <td className={`border-2 ${rowBorder} px-4 py-2`}>{row.propertyName}</td>
+                        <td className={`border-2 ${rowBorder} px-4 py-2 font-semibold`}>{row.tenant}</td>
                         <td className={`border-2 ${rowBorder} px-4 py-2 text-right font-semibold`}>
                           {row.monthlyPayment.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
                         </td>
@@ -239,9 +384,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                     );
                   })}
                   <tr className="bg-yellow-300 text-gray-900 font-bold text-lg">
-                    <td colSpan={3} className="border-2 border-gray-900 px-4 py-3">
-                      TOTAL
-                    </td>
+                    <td colSpan={3} className="border-2 border-gray-900 px-4 py-3">TOTAL</td>
                     <td className="border-2 border-gray-900 px-4 py-3 text-right">
                       {summaryData.totalMonthlyPayments.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
                     </td>
@@ -269,34 +412,15 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
 
       {!embedded && <style>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          .fixed.inset-0 {
-            position: static;
-          }
-          .fixed.inset-0, .fixed.inset-0 * {
-            visibility: visible;
-          }
-          .print\\:hidden {
-            display: none !important;
-          }
-          .print\\:block {
-            display: block !important;
-          }
-          .print\\:p-8 {
-            padding: 2rem !important;
-          }
-          .bg-white {
-            background-color: white !important;
-          }
-          table {
-            page-break-inside: auto;
-          }
-          tr {
-            page-break-inside: avoid;
-            page-break-after: auto;
-          }
+          body * { visibility: hidden; }
+          .fixed.inset-0 { position: static; }
+          .fixed.inset-0, .fixed.inset-0 * { visibility: visible; }
+          .print\\:hidden { display: none !important; }
+          .print\\:block { display: block !important; }
+          .print\\:p-8 { padding: 2rem !important; }
+          .bg-white { background-color: white !important; }
+          table { page-break-inside: auto; }
+          tr { page-break-inside: avoid; page-break-after: auto; }
         }
       `}</style>}
     </div>
