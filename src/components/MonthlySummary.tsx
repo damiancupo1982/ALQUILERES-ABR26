@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { X, Printer } from 'lucide-react';
+import { X, Printer, CheckSquare, Square } from 'lucide-react';
 import { Property, Tenant, Receipt } from '../App';
 
 interface MonthlySummaryProps {
   properties: Property[];
   tenants: Tenant[];
   receipts: Receipt[];
-  onClose: () => void;
+  onClose?: () => void;
+  embedded?: boolean;
 }
 
 const MonthlySummary: React.FC<MonthlySummaryProps> = ({
@@ -14,10 +15,25 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   tenants,
   receipts,
   onClose,
+  embedded = false,
 }) => {
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<number[]>(() => properties.map(property => property.id));
+
+  const allPropertiesSelected = selectedPropertyIds.length === properties.length && properties.length > 0;
+
+  const toggleAllProperties = () => {
+    setSelectedPropertyIds(allPropertiesSelected ? [] : properties.map(property => property.id));
+  };
+
+  const toggleProperty = (propertyId: number) => {
+    setSelectedPropertyIds(current => current.includes(propertyId)
+      ? current.filter(id => id !== propertyId)
+      : [...current, propertyId]
+    );
+  };
 
   const buildingColors = [
     { bg: 'bg-red-100', text: 'text-red-900', border: 'border-red-300' },
@@ -36,7 +52,9 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
   ];
 
   const summaryData = useMemo(() => {
-    const sortedProperties = [...properties].sort((a, b) => {
+    const sortedProperties = properties
+      .filter(property => selectedPropertyIds.includes(property.id))
+      .sort((a, b) => {
       const buildingCompare = a.building.localeCompare(b.building);
       if (buildingCompare !== 0) return buildingCompare;
       return a.name.localeCompare(b.name);
@@ -86,27 +104,29 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
     const totalDebt = rows.reduce((sum, row) => sum + row.totalDebt, 0);
 
     return { rows, totalMonthlyPayments, totalDebt };
-  }, [properties, tenants, receipts, selectedMonth, selectedYear]);
+  }, [properties, tenants, receipts, selectedMonth, selectedYear, selectedPropertyIds]);
 
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[95vh] overflow-hidden flex flex-col">
+    <div className={embedded ? 'space-y-6' : 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'}>
+      <div className={embedded ? 'bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden' : 'bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[95vh] overflow-hidden flex flex-col'}>
         <div className="flex justify-between items-center p-6 border-b print:hidden">
           <h2 className="text-2xl font-bold text-gray-800">Resumen Mensual de Pagos</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="h-6 w-6" />
-          </button>
+          {!embedded && onClose && (
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+          )}
         </div>
 
         <div className="p-6 print:hidden border-b">
-          <div className="flex gap-4 items-center">
+          <div className="flex flex-wrap gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
               <select
@@ -135,9 +155,35 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
                 ))}
               </select>
             </div>
+            <div className="relative min-w-[260px]">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Propiedades</label>
+              <div className="border border-gray-300 rounded-lg p-2 max-h-36 overflow-y-auto bg-white">
+                <button
+                  type="button"
+                  onClick={toggleAllProperties}
+                  className="flex items-center gap-2 w-full text-left px-2 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 rounded"
+                >
+                  {allPropertiesSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                  {allPropertiesSelected ? 'Deseleccionar todas' : 'Seleccionar todas'}
+                </button>
+                <div className="border-t border-gray-100 mt-1 pt-1">
+                  {properties.map(property => (
+                    <label key={property.id} className="flex items-center gap-2 px-2 py-1 text-sm text-gray-700 hover:bg-gray-50 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedPropertyIds.includes(property.id)}
+                        onChange={() => toggleProperty(property.id)}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="truncate">{property.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
             <button
               onClick={handlePrint}
-              className="mt-6 flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Printer className="h-5 w-5" />
               Imprimir
@@ -145,7 +191,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-6">
+        <div className={embedded ? 'overflow-auto p-6' : 'flex-1 overflow-auto p-6'}>
           <div className="print:p-8">
             <div className="text-center mb-6 print:block">
               <h1 className="text-3xl font-bold text-gray-900 uppercase">
@@ -209,17 +255,19 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
           </div>
         </div>
 
-        <div className="p-4 border-t bg-gray-50 print:hidden">
-          <button
-            onClick={onClose}
-            className="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            Cerrar
-          </button>
-        </div>
+        {!embedded && onClose && (
+          <div className="p-4 border-t bg-gray-50 print:hidden">
+            <button
+              onClick={onClose}
+              className="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
       </div>
 
-      <style>{`
+      {!embedded && <style>{`
         @media print {
           body * {
             visibility: hidden;
@@ -250,7 +298,7 @@ const MonthlySummary: React.FC<MonthlySummaryProps> = ({
             page-break-after: auto;
           }
         }
-      `}</style>
+      `}</style>}
     </div>
   );
 };

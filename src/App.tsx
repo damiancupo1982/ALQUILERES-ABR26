@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Building2, Users, Receipt, Calendar, BarChart3, Plus, Bell, Wallet, Download, Upload } from 'lucide-react';
+import { Building2, Users, Receipt, Calendar, BarChart3, Plus, Bell, Wallet, Download, Upload, ClipboardList } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import PropertiesManager from './components/PropertiesManager';
 import TenantsManager from './components/TenantsManager';
 import ReceiptsManager from './components/ReceiptsManager';
 import PaymentsHistory from './components/PaymentsHistory';
 import CashRegister from './components/CashRegister';
+import MonthlySummary from './components/MonthlySummary';
 import { buildingsService } from './services/buildings.service';
 import { supabase } from './lib/supabase';
 
-type TabType = 'dashboard' | 'properties' | 'tenants' | 'receipts' | 'history' | 'cash';
+type TabType = 'dashboard' | 'properties' | 'tenants' | 'receipts' | 'history' | 'cash' | 'summary';
 
 // Interfaces globales
 export interface Tenant {
@@ -422,6 +423,7 @@ function App() {
     { id: 'tenants', label: 'Inquilinos', icon: Users },
     { id: 'receipts', label: 'Recibos', icon: Receipt },
     { id: 'history', label: 'Historial', icon: Calendar },
+    { id: 'summary', label: 'Resumen', icon: ClipboardList },
     { id: 'cash', label: 'Arqueo', icon: Wallet },
   ] as const;
 
@@ -496,6 +498,8 @@ function App() {
         />;
       case 'history':
         return <PaymentsHistory receipts={receipts} />;
+      case 'summary':
+        return <MonthlySummary properties={properties} tenants={tenants} receipts={receipts} embedded />;
       case 'cash':
         return <CashRegister
           cashMovements={cashMovements}
