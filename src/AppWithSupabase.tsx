@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Building2, Users, Receipt, Calendar, BarChart3, Search, Bell, Wallet, RefreshCw, Database, AlertCircle, Download, Upload } from 'lucide-react';
+import { Building2, Users, Receipt, Calendar, BarChart3, Search, Bell, Wallet, RefreshCw, Database, AlertCircle, Download, Upload, ClipboardList } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import PropertiesManager from './components/PropertiesManager';
 import TenantsManager from './components/TenantsManager';
 import ReceiptsManager from './components/ReceiptsManager';
 import PaymentsHistory from './components/PaymentsHistory';
 import CashRegister from './components/CashRegister';
+import MonthlySummary from './components/MonthlySummary';
 import { useSupabaseData } from './hooks/useSupabaseData';
 import { propertiesService } from './services/properties.service';
 import { tenantsService } from './services/tenants.service';
@@ -17,7 +18,7 @@ import { supabase } from './lib/supabase';
 import { tenantAdjustmentsService } from './services/tenantAdjustments.service';
 import { Property, Tenant, Receipt as ReceiptType, CashMovement, TenantAdjustment } from './App';
 
-type TabType = 'dashboard' | 'properties' | 'tenants' | 'receipts' | 'history' | 'cash';
+type TabType = 'dashboard' | 'properties' | 'tenants' | 'receipts' | 'history' | 'cash' | 'summary';
 
 function AppWithSupabase() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -522,6 +523,7 @@ function AppWithSupabase() {
     { id: 'tenants', label: 'Inquilinos', icon: Users },
     { id: 'receipts', label: 'Recibos', icon: Receipt },
     { id: 'history', label: 'Historial', icon: Calendar },
+    { id: 'summary', label: 'Resumen', icon: ClipboardList },
     { id: 'cash', label: 'Arqueo', icon: Wallet },
   ] as const;
 
@@ -630,6 +632,8 @@ function AppWithSupabase() {
         />;
       case 'history':
         return <PaymentsHistory receipts={filtered.receipts || receipts} properties={properties} tenants={tenants} />;
+      case 'summary':
+        return <MonthlySummary properties={properties} tenants={tenants} receipts={receipts} embedded />;
       case 'cash':
         return <CashRegister
           cashMovements={filtered.cashMovements || cashMovements}
