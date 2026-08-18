@@ -304,7 +304,7 @@ const FinancialReport: React.FC<FinancialReportProps> = ({ cashMovements }) => {
             {data.map((row, i) => {
               const h = row.ars ? Math.max((row.ars / maxBar) * 100, 3) : 2;
               return (
-                <div key={i} className="flex-1 flex flex-col items-center justify-end">
+                <div key={i} className="h-full flex-1 flex flex-col items-center justify-end">
                   <span className="text-xs font-bold text-slate-700 mb-1">{formatARS(row.ars)}</span>
                   <div className="w-full rounded-t-md bg-gradient-to-t from-blue-600 to-blue-400 transition-all duration-300 hover:from-blue-700" style={{ height: `${h}%` }} />
                   <span className="text-xs text-slate-500 mt-2 text-center">{monthsShort[row.monthIndex]} {String(row.year).slice(2)}</span>
@@ -326,3 +326,5 @@ const FinancialReport: React.FC<FinancialReportProps> = ({ cashMovements }) => {
 };
 
 export default FinancialReport;
+
+export default FinancialReport
