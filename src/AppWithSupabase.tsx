@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Building2, Users, Receipt, Calendar, BarChart3, Search, Bell, Wallet, RefreshCw, Database, AlertCircle, Download, Upload, ClipboardList } from 'lucide-react';
+import { Building2, Users, Receipt, Calendar, BarChart3, Search, Bell, Wallet, RefreshCw, Database, AlertCircle, Download, Upload, ClipboardList, TrendingUp } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import PropertiesManager from './components/PropertiesManager';
 import TenantsManager from './components/TenantsManager';
@@ -7,6 +7,7 @@ import ReceiptsManager from './components/ReceiptsManager';
 import PaymentsHistory from './components/PaymentsHistory';
 import CashRegister from './components/CashRegister';
 import MonthlySummary from './components/MonthlySummary';
+import FinancialReport from './components/FinancialReport';
 import { useSupabaseData } from './hooks/useSupabaseData';
 import { propertiesService } from './services/properties.service';
 import { tenantsService } from './services/tenants.service';
@@ -18,7 +19,7 @@ import { supabase } from './lib/supabase';
 import { tenantAdjustmentsService } from './services/tenantAdjustments.service';
 import { Property, Tenant, Receipt as ReceiptType, CashMovement, TenantAdjustment } from './App';
 
-type TabType = 'dashboard' | 'properties' | 'tenants' | 'receipts' | 'history' | 'cash' | 'summary';
+type TabType = 'dashboard' | 'properties' | 'tenants' | 'receipts' | 'history' | 'cash' | 'summary' | 'financial';
 
 function AppWithSupabase() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -525,6 +526,7 @@ function AppWithSupabase() {
     { id: 'history', label: 'Historial', icon: Calendar },
     { id: 'summary', label: 'Resumen', icon: ClipboardList },
     { id: 'cash', label: 'Arqueo', icon: Wallet },
+    { id: 'financial', label: 'Resumen Financiero', icon: TrendingUp },
   ] as const;
 
   const filterData = <T extends Record<string, any>>(data: T[], searchFields: (keyof T)[]): T[] => {
@@ -639,6 +641,8 @@ function AppWithSupabase() {
           cashMovements={filtered.cashMovements || cashMovements}
           setCashMovements={setCashMovements}
         />;
+      case 'financial':
+        return <FinancialReport receipts={receipts} />;
       default:
         return <Dashboard tenants={tenants} receipts={receipts} properties={properties} setActiveTab={setActiveTab} />;
     }
