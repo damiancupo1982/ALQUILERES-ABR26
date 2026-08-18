@@ -326,5 +326,3 @@ const FinancialReport: React.FC<FinancialReportProps> = ({ cashMovements }) => {
 };
 
 export default FinancialReport;
-
-export default FinancialReport
