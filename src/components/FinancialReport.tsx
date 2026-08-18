@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Printer, Download, Share2, TrendingUp, DollarSign, Banknote, Building2, Calendar } from 'lucide-react';
-import { Receipt } from '../App';
+import { CashMovement } from '../App';
 
 const months = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -13,7 +13,7 @@ const formatARS = (n: number) => `$${n.toLocaleString('es-AR', { maximumFraction
 const formatUSD = (n: number) => `U$S ${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
 
 interface FinancialReportProps {
-  receipts: Receipt[];
+  cashMovements: CashMovement[];
 }
 
 interface MonthRow {
@@ -26,7 +26,7 @@ interface MonthRow {
   details: { efectivo: number; transferencia: number; dolares: number };
 }
 
-const FinancialReport: React.FC<FinancialReportProps> = ({ receipts }) => {
+const FinancialReport: React.FC<FinancialReportProps> = ({ cashMovements }) => {
   const now = new Date();
   const [fromMonth, setFromMonth] = useState(now.getMonth());
   const [fromYear, setFromYear] = useState(now.getFullYear());
@@ -35,25 +35,25 @@ const FinancialReport: React.FC<FinancialReportProps> = ({ receipts }) => {
 
   const years = useMemo(() => {
     const ys = new Set<number>();
-    receipts.forEach(r => { if (r.createdDate) ys.add(new Date(r.createdDate).getFullYear()); });
+    cashMovements.forEach(m => { if (m.date) ys.add(Number(m.date.slice(0, 4))); });
     ys.add(now.getFullYear());
     return Array.from(ys).sort((a, b) => a - b);
-  }, [receipts]);
+  }, [cashMovements]);
 
   const rangeStart = useMemo(() => new Date(fromYear, fromMonth, 1), [fromYear, fromMonth]);
   const rangeEnd = useMemo(() => new Date(toYear, toMonth + 1, 0, 23, 59, 59), [toYear, toMonth]);
 
   const data: MonthRow[] = useMemo(() => {
-    const valid = receipts.filter(r => {
-      if (!r.createdDate || r.paidAmount <= 0) return false;
-      const d = new Date(r.createdDate);
+    const valid = cashMovements.filter(m => {
+      if (m.type !== 'income' || !m.date || m.amount <= 0) return false;
+      const d = new Date(`${m.date}T12:00:00`);
       return d >= rangeStart && d <= rangeEnd;
     });
 
     const map = new Map<string, MonthRow>();
 
-    valid.forEach(r => {
-      const d = new Date(r.createdDate);
+    valid.forEach(movement => {
+      const d = new Date(`${movement.date}T12:00:00`);
       const y = d.getFullYear();
       const m = d.getMonth();
       const key = `${y}-${m}`;
@@ -71,21 +71,20 @@ const FinancialReport: React.FC<FinancialReportProps> = ({ receipts }) => {
       const row = map.get(key)!;
       row.paymentCount++;
 
-      if (r.paymentMethod === 'dolares' || r.currency === 'USD') {
-        row.usd += r.paidAmount;
-        row.details.dolares += r.paidAmount;
+      if (movement.paymentMethod === 'dolares' || movement.currency === 'USD') {
+        row.usd += movement.amount;
+        row.details.dolares += movement.amount;
       } else {
-        row.ars += r.paidAmount;
-        if (r.paymentMethod === 'efectivo') row.details.efectivo += r.paidAmount;
-        else if (r.paymentMethod === 'transferencia') row.details.transferencia += r.paidAmount;
-        else row.details.transferencia += r.paidAmount;
+        row.ars += movement.amount;
+        if (movement.paymentMethod === 'efectivo') row.details.efectivo += movement.amount;
+        else row.details.transferencia += movement.amount;
       }
     });
 
     return Array.from(map.values()).sort((a, b) =>
       a.year !== b.year ? a.year - b.year : a.monthIndex - b.monthIndex
     );
-  }, [receipts, rangeStart, rangeEnd]);
+  }, [cashMovements, rangeStart, rangeEnd]);
 
   const totals = useMemo(() => {
     const ars = data.reduce((s, r) => s + r.ars, 0);
@@ -327,3 +326,6 @@ const FinancialReport: React.FC<FinancialReportProps> = ({ receipts }) => {
 };
 
 export default FinancialReport;
+
+
+export default FinancialReport

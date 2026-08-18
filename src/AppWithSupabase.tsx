@@ -642,7 +642,7 @@ function AppWithSupabase() {
           setCashMovements={setCashMovements}
         />;
       case 'financial':
-        return <FinancialReport receipts={receipts} />;
+        return <FinancialReport cashMovements={cashMovements} />;
       default:
         return <Dashboard tenants={tenants} receipts={receipts} properties={properties} setActiveTab={setActiveTab} />;
     }
